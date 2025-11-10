@@ -1,0 +1,187 @@
+services:
+  # 1. Eureka Service Discovery Server
+  eureka-server:
+    image: steeltoeoss/eureka-server:latest
+    ports:
+      - "8761:8761"
+    environment:
+      - EUREKA_CLIENT_REGISTER_WITH_EUREKA=false
+      - EUREKA_CLIENT_FETCH_REGISTRY=false
+      - EUREKA_SERVER_ENABLE_SELF_PRESERVATION=false
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --timeout=10 -O /dev/null http://localhost:8761/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # 2. API Gateway
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - SERVICE_NAME=API-GATEWAY
+      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka
+      - AUTH_SERVICE_URL=http://auth-service:8003
+      - STAKEHOLDERS_SERVICE_URL=http://stakeholders-service:8001
+      - BLOG_SERVICE_URL=http://blog-service:8002
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--timeout=10", "-O", "/dev/null", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      stakeholders-service:
+        condition: service_healthy
+      blog-service:
+        condition: service_healthy
+
+  # 3. Stakeholders Servis
+  stakeholders-service:
+    build:
+      context: ./services/stakeholders-service
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - PORT=8001
+      - SERVICE_NAME=STAKEHOLDERS-SERVICE
+      - DB_USER=user
+      - DB_PASS=password
+      - DB_HOST=stakeholders-db
+      - DB_NAME=stakeholders_db
+      - JWT_KEY=moj-tajni-kljuc-za-jwt-tokenizaciju-2024
+      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka
+      - AUTH_SERVICE_URL=http://auth-service:8003
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--timeout=10", "-O", "/dev/null", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      stakeholders-db:
+        condition: service_healthy
+
+  # 4. Auth Servis
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - PORT=8003
+      - SERVICE_NAME=AUTH-SERVICE
+      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka
+      - STAKEHOLDERS_SERVICE_URL=http://stakeholders-service:8001
+      - JWT_KEY=moj-tajni-kljuc-za-jwt-tokenizaciju-2024
+      - JWT_REFRESH_KEY=moj-refresh-kljuc-za-jwt-tokenizaciju-2024
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--timeout=10", "-O", "/dev/null", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      stakeholders-service:
+        condition: service_healthy
+
+  # 5. Blog Servis
+  blog-service:
+    build:
+      context: ./services/blog-service
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - PORT=8002
+      - SERVICE_NAME=BLOG-SERVICE
+      - DB_USER=user
+      - DB_PASS=password
+      - DB_HOST=blog-db
+      - DB_NAME=blog_db
+      - JWT_KEY=moj-tajni-kljuc-za-jwt-tokenizaciju-2024
+      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka
+      - AUTH_SERVICE_URL=http://auth-service:8003
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--timeout=10", "-O", "/dev/null", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      blog-db:
+        condition: service_healthy
+
+  # 4. Baze Podataka
+  stakeholders-db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: "root_password"
+      MYSQL_DATABASE: "stakeholders_db"
+      MYSQL_USER: "user"
+      MYSQL_PASSWORD: "password"
+    ports:
+      - "3307:3306"
+    volumes:
+      - stakeholders-data:/var/lib/mysql
+      - ./init-stakeholders.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  blog-db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: "root_password"
+      MYSQL_DATABASE: "blog_db"
+      MYSQL_USER: "user"
+      MYSQL_PASSWORD: "password"
+    ports:
+      - "3308:3306"
+    volumes:
+      - blog-data:/var/lib/mysql
+      - ./init-blog.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  stakeholders-data:
+  blog-data:
