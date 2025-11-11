@@ -104,27 +104,24 @@ services:
       stakeholders-service:
         condition: service_healthy
 
-  # 5. Blog Servis
+  # 5. Blog Servis (Node.js)
   blog-service:
     build:
-      context: ./services/blog-service
+      context: ./services/blog-service-nodejs
       dockerfile: Dockerfile
     ports:
       - "8002:8002"
     environment:
       - PORT=8002
-      - SERVICE_NAME=BLOG-SERVICE
       - DB_USER=user
       - DB_PASS=password
       - DB_HOST=blog-db
       - DB_NAME=blog_db
-      - JWT_KEY=moj-tajni-kljuc-za-jwt-tokenizaciju-2024
-      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka
       - AUTH_SERVICE_URL=http://auth-service:8003
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "wget", "-q", "--timeout=10", "-O", "/dev/null", "http://localhost:8002/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
       interval: 30s
       timeout: 10s
       retries: 5

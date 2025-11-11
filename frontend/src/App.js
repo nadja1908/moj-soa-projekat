@@ -3,9 +3,6 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import NavigationBar from './components/NavigationBar';
 import Login from './components/Login';
 import Register from './components/Register';
-import Dashboard from './components/Dashboard';
-import BlogPosts from './components/BlogPosts';
-import CreatePost from './components/CreatePost';
 import AdminPanel from './components/AdminPanel';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -29,31 +26,19 @@ function AppContent() {
         <Routes>
           <Route 
             path="/login" 
-            element={!user ? <Login /> : <Navigate to="/dashboard" />} 
+            element={!user ? <Login /> : <Navigate to={user.role === 'administrator' ? "/admin" : "/login"} />} 
           />
           <Route 
             path="/register" 
-            element={!user ? <Register /> : <Navigate to="/dashboard" />} 
-          />
-          <Route 
-            path="/dashboard" 
-            element={user ? <Dashboard /> : <Navigate to="/login" />} 
-          />
-          <Route 
-            path="/posts" 
-            element={<BlogPosts />} 
-          />
-          <Route 
-            path="/create-post" 
-            element={user ? <CreatePost /> : <Navigate to="/login" />} 
+            element={!user ? <Register /> : <Navigate to={user.role === 'administrator' ? "/admin" : "/login"} />} 
           />
           <Route 
             path="/admin" 
-            element={user && user.role === 'administrator' ? <AdminPanel /> : <Navigate to="/dashboard" />} 
+            element={user && user.role === 'administrator' ? <AdminPanel /> : <Navigate to="/login" />} 
           />
           <Route 
             path="/" 
-            element={<Navigate to={user ? "/dashboard" : "/login"} />} 
+            element={<Navigate to={user ? (user.role === 'administrator' ? "/admin" : "/login") : "/login"} />} 
           />
         </Routes>
       </div>

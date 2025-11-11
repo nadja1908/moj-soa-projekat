@@ -58,6 +58,7 @@ func main() {
 		// Administrator endpoints
 		protected.GET("/users", userHandler.GetAllUsers)
 		protected.PUT("/users/:id/block", userHandler.BlockUser)
+		protected.PUT("/users/:id/unblock", userHandler.UnblockUser)
 	}
 
 	log.Printf("Stakeholders service starting on port %s", port)

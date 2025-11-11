@@ -53,32 +53,6 @@ const NavigationBar = () => {
 
           {/* Desktop meni */}
           <div className="hidden md:flex items-center space-x-4 xl:space-x-6">
-            {user && (
-              <>
-                <Link
-                  to="/dashboard"
-                  className="text-gray-700 hover:text-orange-600 font-medium text-sm xl:text-base transition-colors duration-200"
-                >
-                  Dashboard
-                </Link>
-
-                <Link
-                  to="/create-post"
-                  className="text-gray-700 hover:text-amber-600 font-medium text-sm xl:text-base transition-colors duration-200"
-                >
-                  Novi Post
-                </Link>
-
-                {user.role === 'administrator' && (
-                  <Link
-                    to="/admin"
-                    className="text-gray-700 hover:text-rose-600 font-medium text-sm xl:text-base transition-colors duration-200"
-                  >
-                    Admin Panel
-                  </Link>
-                )}
-              </>
-            )}
           </div>
 
           {/* User sekcija */}

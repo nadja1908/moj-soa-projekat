@@ -93,7 +93,8 @@ func main() {
 	admin.Use(authMiddleware.ValidateToken())
 	{
 		admin.GET("/users", gatewayHandler.ProxyToStakeholders)
-		admin.DELETE("/users/:id", gatewayHandler.ProxyToStakeholders)
+		admin.PUT("/users/:id/block", gatewayHandler.ProxyToStakeholders)
+		admin.PUT("/users/:id/unblock", gatewayHandler.ProxyToStakeholders)
 		admin.GET("/posts", gatewayHandler.ProxyToBlog)
 	}
 

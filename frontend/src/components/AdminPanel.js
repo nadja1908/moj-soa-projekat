@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Button, Badge, Alert, Spinner, Modal } from 'react-bootstrap';
-import api from '../services/api';
+import { adminApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const AdminPanel = () => {
@@ -21,8 +21,8 @@ const AdminPanel = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/users');
-      setUsers(response.data || []);
+      const response = await adminApi.get('/users');
+      setUsers(response.data.users || []);
     } catch (error) {
       console.error('Error fetching users:', error);
       setError('Greška pri učitavanju korisnika');
@@ -32,7 +32,12 @@ const AdminPanel = () => {
   };
 
   const handleBlockUser = async (userId, username) => {
-    setSelectedUser({ id: userId, username });
+    setSelectedUser({ id: userId, username, action: 'block' });
+    setShowModal(true);
+  };
+
+  const handleUnblockUser = async (userId, username) => {
+    setSelectedUser({ id: userId, username, action: 'unblock' });
     setShowModal(true);
   };
 
@@ -41,13 +46,17 @@ const AdminPanel = () => {
 
     try {
       setActionLoading(selectedUser.id);
-      await api.put(`/users/${selectedUser.id}/block`);
+      if (selectedUser.action === 'block') {
+        await adminApi.put(`/users/${selectedUser.id}/block`);
+      } else {
+        await adminApi.put(`/users/${selectedUser.id}/unblock`);
+      }
       await fetchUsers(); // Refresh the list
       setShowModal(false);
       setSelectedUser(null);
     } catch (error) {
-      console.error('Error blocking user:', error);
-      setError('Greška pri blokiranju korisnika');
+      console.error(`Error ${selectedUser.action}ing user:`, error);
+      setError(`Greška pri ${selectedUser.action === 'block' ? 'blokiranju' : 'odblokiranju'} korisnika`);
     } finally {
       setActionLoading(null);
     }
@@ -82,13 +91,13 @@ const AdminPanel = () => {
   const getRoleIcon = (role) => {
     switch (role) {
       case 'administrator':
-        return '👑';
+        return '';
       case 'guide':
-        return '🗺️';
+        return '';
       case 'tourist':
-        return '🧳';
+        return '';
       default:
-        return '👤';
+        return '';
     }
   };
 
@@ -112,26 +121,15 @@ const AdminPanel = () => {
 
   return (
     <div className="container">
-      <div className="d-flex justify-content-between align-items-center mb-5">
-        <div>
-          <h1 className="display-5">⚙️ Admin Panel</h1>
-          <p className="lead text-muted">Upravljanje korisnicima sistema</p>
-        </div>
-        <Badge bg="danger" className="p-3" style={{ fontSize: '1rem' }}>
-          👑 Administrator
-        </Badge>
-      </div>
-
       {error && <Alert variant="danger" dismissible onClose={() => setError('')}>{error}</Alert>}
 
-      <Card className="border-0 shadow-sm mb-4">
+      <Card className="border-0 shadow-sm">
         <Card.Header className="bg-white border-0">
-          <h5 className="mb-0">👥 Korisnici sistema ({users.length})</h5>
+          <h5 className="mb-0">Korisnici sistema ({users.length})</h5>
         </Card.Header>
         <Card.Body>
           {users.length === 0 ? (
             <div className="text-center py-5">
-              <div className="feature-icon">👥</div>
               <p className="text-muted">Nema registrovanih korisnika.</p>
             </div>
           ) : (
@@ -161,12 +159,12 @@ const AdminPanel = () => {
                     <td>{userItem.email}</td>
                     <td>
                       <Badge bg={getRoleBadgeVariant(userItem.role)} className="role-badge">
-                        {getRoleIcon(userItem.role)} {getRoleDisplayName(userItem.role)}
+                        {getRoleDisplayName(userItem.role)}
                       </Badge>
                     </td>
                     <td>
                       <Badge bg={userItem.isActive ? 'success' : 'danger'}>
-                        {userItem.isActive ? '✅ Aktivan' : '🚫 Blokiran'}
+                        {userItem.isActive ? 'Aktivan' : 'Blokiran'}
                       </Badge>
                     </td>
                     <td>
@@ -174,15 +172,17 @@ const AdminPanel = () => {
                         <Button
                           variant={userItem.isActive ? 'danger' : 'success'}
                           size="sm"
-                          onClick={() => handleBlockUser(userItem.id, userItem.username)}
+                          onClick={() => userItem.isActive 
+                            ? handleBlockUser(userItem.id, userItem.username)
+                            : handleUnblockUser(userItem.id, userItem.username)}
                           disabled={actionLoading === userItem.id}
                         >
                           {actionLoading === userItem.id ? (
                             <Spinner animation="border" size="sm" />
                           ) : userItem.isActive ? (
-                            '🚫 Blokiraj'
+                            'Blokiraj'
                           ) : (
-                            '✅ Odblokiraj'
+                            'Odblokiraj'
                           )}
                         </Button>
                       )}
@@ -198,49 +198,17 @@ const AdminPanel = () => {
         </Card.Body>
       </Card>
 
-      <Card className="border-0 shadow-sm">
-        <Card.Header className="bg-white border-0">
-          <h5 className="mb-0">📊 Statistike sistema</h5>
-        </Card.Header>
-        <Card.Body>
-          <div className="admin-stats">
-            <div className="admin-stat-card">
-              <div className="admin-stat-number text-primary">{users.length}</div>
-              <div className="admin-stat-label">Ukupno korisnika</div>
-            </div>
-            <div className="admin-stat-card">
-              <div className="admin-stat-number text-success">
-                {users.filter(u => u.role === 'guide').length}
-              </div>
-              <div className="admin-stat-label">Vodiči</div>
-            </div>
-            <div className="admin-stat-card">
-              <div className="admin-stat-number text-info">
-                {users.filter(u => u.role === 'tourist').length}
-              </div>
-              <div className="admin-stat-label">Turisti</div>
-            </div>
-            <div className="admin-stat-card">
-              <div className="admin-stat-number text-danger">
-                {users.filter(u => u.role === 'administrator').length}
-              </div>
-              <div className="admin-stat-label">Administratori</div>
-            </div>
-          </div>
-        </Card.Body>
-      </Card>
-
       {/* Confirmation Modal */}
       <Modal show={showModal} onHide={() => setShowModal(false)}>
         <Modal.Header closeButton>
-          <Modal.Title>⚠️ Potvrda akcije</Modal.Title>
+          <Modal.Title>Potvrda akcije</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {selectedUser && (
             <p>
               Da li ste sigurni da želite da {' '}
               <strong>
-                {users.find(u => u.id === selectedUser.id)?.isActive ? 'blokirate' : 'odblokirate'}
+                {selectedUser.action === 'block' ? 'blokirate' : 'odblokirate'}
               </strong>
               {' '} korisnika <strong>{selectedUser.username}</strong>?
             </p>
@@ -251,13 +219,13 @@ const AdminPanel = () => {
             Odustani
           </Button>
           <Button 
-            variant={users.find(u => u.id === selectedUser?.id)?.isActive ? 'danger' : 'success'} 
+            variant={selectedUser?.action === 'block' ? 'danger' : 'success'} 
             onClick={confirmBlockUser}
             disabled={actionLoading}
           >
             {actionLoading ? (
               <Spinner animation="border" size="sm" />
-            ) : users.find(u => u.id === selectedUser?.id)?.isActive ? (
+            ) : selectedUser?.action === 'block' ? (
               'Blokiraj'
             ) : (
               'Odblokiraj'

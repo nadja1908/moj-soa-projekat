@@ -166,6 +166,29 @@ func (h *UserHandler) BlockUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "User blocked successfully"})
 }
 
+// UnblockUser odblokira korisnički nalog (samo za administratore)
+func (h *UserHandler) UnblockUser(c *gin.Context) {
+	userRole, exists := c.Get("userRole")
+	if !exists || userRole != "administrator" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Administrator access required"})
+		return
+	}
+
+	userIDStr := c.Param("id")
+	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	if err := h.store.UnblockUser(userID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to unblock user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "User unblocked successfully"})
+}
+
 // GetUserByID vraća korisnika po ID-u (interno za Auth servis)
 func (h *UserHandler) GetUserByID(c *gin.Context) {
 	userIDStr := c.Param("id")

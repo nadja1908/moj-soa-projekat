@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
 
@@ -38,17 +37,17 @@ func (m *AuthMiddleware) ValidateToken() gin.HandlerFunc {
 			return
 		}
 
-		// Validate token with auth service
-		validateRequest := map[string]string{"token": token}
-		jsonData, err := json.Marshal(validateRequest)
+		// Make request to auth service with token in Authorization header
+		req, err := http.NewRequest("GET", m.authServiceURL+"/validate", nil)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to prepare validation request"})
 			c.Abort()
 			return
 		}
+		req.Header.Set("Authorization", "Bearer "+token)
 
-		// Make request to auth service
-		resp, err := http.Post(m.authServiceURL+"/validate", "application/json", bytes.NewBuffer(jsonData))
+		client := &http.Client{}
+		resp, err := client.Do(req)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate token"})
 			c.Abort()
@@ -64,9 +63,8 @@ func (m *AuthMiddleware) ValidateToken() gin.HandlerFunc {
 
 		// Parse response to get user info
 		var validationResponse struct {
-			UserID   int    `json:"user_id"`
-			Username string `json:"username"`
-			Role     string `json:"role"`
+			UserID int    `json:"userId"`
+			Role   string `json:"role"`
 		}
 
 		if err := json.NewDecoder(resp.Body).Decode(&validationResponse); err != nil {
@@ -75,10 +73,9 @@ func (m *AuthMiddleware) ValidateToken() gin.HandlerFunc {
 			return
 		}
 
-		// Set user info in context
-		c.Set("user_id", validationResponse.UserID)
-		c.Set("username", validationResponse.Username)
-		c.Set("role", validationResponse.Role)
+		// Set user info in context for stakeholders service
+		c.Set("userID", validationResponse.UserID)
+		c.Set("userRole", validationResponse.Role)
 
 		c.Next()
 	}
