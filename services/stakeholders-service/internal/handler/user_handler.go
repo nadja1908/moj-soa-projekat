@@ -115,12 +115,14 @@ func (h *UserHandler) Login(c *gin.Context) {
 	}
 
 	// Kreiraj odgovor bez tokena (Auth servis će kreirati token)
-	c.JSON(http.StatusOK, model.User{
-		ID:       user.ID,
-		Username: user.Username,
-		Email:    user.Email,
-		Role:     user.Role,
-		IsActive: user.IsActive,
+	c.JSON(http.StatusOK, gin.H{
+		"user": model.User{
+			ID:       user.ID,
+			Username: user.Username,
+			Email:    user.Email,
+			Role:     user.Role,
+			IsActive: user.IsActive,
+		},
 	})
 }
 
