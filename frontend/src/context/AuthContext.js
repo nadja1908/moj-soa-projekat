@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }) => {
       authApi.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
       setUser(userData);
       
-      return { success: true };
+      return { success: true, user: userData };
     } catch (error) {
       console.error('Login error:', error);
       return { 
@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }) => {
       authApi.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
       setUser(newUser);
       
-      return { success: true, data: response.data };
+      return { success: true, user: newUser, data: response.data };
     } catch (error) {
       console.error('Registration error:', error);
       return { 

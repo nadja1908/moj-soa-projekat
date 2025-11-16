@@ -30,7 +30,7 @@ const Register = () => {
     const result = await register(formData);
 
     if (result.success) {
-      navigate('/dashboard');
+      navigate('/login');
     } else {
       setError(result.error);
     }

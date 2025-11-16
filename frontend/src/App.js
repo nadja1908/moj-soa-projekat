@@ -40,6 +40,11 @@ function AppContent() {
             path="/" 
             element={<Navigate to={user ? (user.role === 'administrator' ? "/admin" : "/login") : "/login"} />} 
           />
+          {/* Catch-all route za sve nepoznate putanje */}
+          <Route 
+            path="*" 
+            element={<Navigate to={user ? (user.role === 'administrator' ? "/admin" : "/login") : "/login"} />} 
+          />
         </Routes>
       </div>
     </div>
