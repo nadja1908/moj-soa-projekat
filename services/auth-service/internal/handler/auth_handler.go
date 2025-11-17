@@ -10,9 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"auth-service/internal/model"
+
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"auth-service/internal/model"
 )
 
 type AuthClaims struct {
