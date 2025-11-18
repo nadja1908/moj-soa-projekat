@@ -43,6 +43,14 @@ const adminApi = axios.create({
   },
 });
 
+// Tour API through Gateway
+const tourApi = axios.create({
+  baseURL: `${API_GATEWAY_URL}/api/tours`,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
 // Request interceptor to add auth token
 const requestInterceptor = (config) => {
   const token = localStorage.getItem('token');
@@ -66,15 +74,17 @@ const handleAuthError = (error) => {
 usersApi.interceptors.request.use(requestInterceptor);
 blogApi.interceptors.request.use(requestInterceptor);
 adminApi.interceptors.request.use(requestInterceptor);
+tourApi.interceptors.request.use(requestInterceptor);
 
 // Add error interceptors to all APIs
 authApi.interceptors.response.use((response) => response, handleAuthError);
 usersApi.interceptors.response.use((response) => response, handleAuthError);
 blogApi.interceptors.response.use((response) => response, handleAuthError);
 adminApi.interceptors.response.use((response) => response, handleAuthError);
+tourApi.interceptors.response.use((response) => response, handleAuthError);
 
 // Backward compatibility exports
 const stakeholdersApi = usersApi;
 
 export default authApi;
-export { authApi, usersApi, blogApi, adminApi, stakeholdersApi };
+export { authApi, usersApi, blogApi, adminApi, stakeholdersApi, tourApi };

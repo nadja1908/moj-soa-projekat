@@ -38,6 +38,44 @@ const NavigationBar = () => {
     }
   };
 
+  const getNavigationLinks = () => {
+    if (!user) return null;
+    
+    switch (user.role) {
+      case 'administrator':
+        return (
+          <Link
+            to="/admin"
+            className="text-gray-700 hover:text-orange-600 font-medium transition-colors duration-200 text-sm xl:text-base"
+          >
+            Admin Panel
+          </Link>
+        );
+      case 'guide':
+        return (
+          <Link
+            to="/guide/tours"
+            className="text-gray-700 hover:text-orange-600 font-medium transition-colors duration-200 text-sm xl:text-base flex items-center"
+          >
+            <i className="fas fa-route me-2"></i>
+            Moje ture
+          </Link>
+        );
+      case 'tourist':
+        return (
+          <Link
+            to="/tours"
+            className="text-gray-700 hover:text-orange-600 font-medium transition-colors duration-200 text-sm xl:text-base flex items-center"
+          >
+            <i className="fas fa-map me-2"></i>
+            Dostupne ture
+          </Link>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <nav className="bg-white shadow-lg border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-6xl xl:max-w-7xl mx-auto px-4">
@@ -53,6 +91,7 @@ const NavigationBar = () => {
 
           {/* Desktop meni */}
           <div className="hidden md:flex items-center space-x-4 xl:space-x-6">
+            {getNavigationLinks()}
           </div>
 
           {/* User sekcija */}
