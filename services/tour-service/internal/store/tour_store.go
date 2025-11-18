@@ -11,15 +11,14 @@ import (
 
 // CreateTour kreira novu turu
 func (s *Store) CreateTour(authorID int64, req *model.CreateTourRequest) (*model.Tour, error) {
-	// Skip tags for now since column doesn't exist
-	// tagsJSON, _ := json.Marshal(req.Tags)
+	tagsJSON, _ := json.Marshal(req.Tags)
 
 	query := `
-		INSERT INTO tours (name, description, difficulty_level, author_id, status, price)
-		VALUES (?, ?, ?, ?, 'DRAFT', 0.00)
+		INSERT INTO tours (name, description, difficulty_level, tags, author_id, status, price)
+		VALUES (?, ?, ?, ?, ?, 'DRAFT', 0.00)
 	`
 
-	result, err := s.db.Exec(query, req.Name, req.Description, req.Difficulty, authorID)
+	result, err := s.db.Exec(query, req.Name, req.Description, req.Difficulty, tagsJSON, authorID)
 	if err != nil {
 		return nil, err
 	}
@@ -35,16 +34,17 @@ func (s *Store) CreateTour(authorID int64, req *model.CreateTourRequest) (*model
 // GetTourByID vraća turu po ID-u
 func (s *Store) GetTourByID(id int64) (*model.Tour, error) {
 	query := `
-		SELECT id, name, description, difficulty_level, status, price, author_id,
+		SELECT id, name, description, difficulty_level, tags, status, price, author_id,
 		       distance_km, published_at, archived_at, created_at, updated_at
 		FROM tours WHERE id = ?
 	`
 
 	row := s.db.QueryRow(query, id)
 	tour := &model.Tour{}
+	var tagsJSON sql.NullString
 
 	err := row.Scan(
-		&tour.ID, &tour.Name, &tour.Description, &tour.Difficulty,
+		&tour.ID, &tour.Name, &tour.Description, &tour.Difficulty, &tagsJSON,
 		&tour.Status, &tour.Price, &tour.AuthorID, &tour.DistanceKm,
 		&tour.PublishedAt, &tour.ArchivedAt, &tour.CreatedAt, &tour.UpdatedAt,
 	)
@@ -53,8 +53,13 @@ func (s *Store) GetTourByID(id int64) (*model.Tour, error) {
 		return nil, err
 	}
 
-	// Set tags as empty string for now since the column doesn't exist
-	tour.Tags = ""
+	// Parse tags JSON
+	if tagsJSON.Valid {
+		tour.Tags = tagsJSON.String
+	} else {
+		tour.Tags = "[]"
+	}
+
 	return tour, nil
 }
 

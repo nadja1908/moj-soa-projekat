@@ -24,6 +24,7 @@ type CreateKeyPointRequest struct {
 	Description string  `json:"description"`
 	Latitude    float64 `json:"latitude" binding:"required"`
 	Longitude   float64 `json:"longitude" binding:"required"`
+	ImageURL    string  `json:"imageUrl"`
 }
 
 // UpdateKeyPointRequest je model za ažuriranje ključne tačke
@@ -32,6 +33,7 @@ type UpdateKeyPointRequest struct {
 	Description string   `json:"description"`
 	Latitude    *float64 `json:"latitude"`
 	Longitude   *float64 `json:"longitude"`
+	ImageURL    string   `json:"imageUrl"`
 }
 
 // CreateTourDurationRequest je model za kreiranje vremena trajanja ture

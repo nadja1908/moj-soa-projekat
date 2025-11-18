@@ -7,7 +7,6 @@ const CreateTourModal = ({ show, onHide, onTourCreated }) => {
     name: '',
     description: '',
     difficulty: 'EASY',
-    price: 0,
     tags: ''
   });
   const [loading, setLoading] = useState(false);
@@ -59,7 +58,6 @@ const CreateTourModal = ({ show, onHide, onTourCreated }) => {
           name: '',
           description: '', 
           difficulty: 'EASY',
-          price: 0,
           tags: ''
         });
       }
@@ -79,7 +77,6 @@ const CreateTourModal = ({ show, onHide, onTourCreated }) => {
         name: '',
         description: '',
         difficulty: 'EASY', 
-        price: 0,
         tags: ''
       });
       onHide();
@@ -160,46 +157,23 @@ const CreateTourModal = ({ show, onHide, onTourCreated }) => {
             />
           </Form.Group>
 
-          <div className="row">
-            <div className="col-md-6">
-              <Form.Group className="mb-3">
-                <Form.Label>
-                  <i className="fas fa-euro-sign me-2"></i>
-                  Cena (€)
-                </Form.Label>
-                <Form.Control
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  name="price"
-                  value={formData.price}
-                  onChange={handleChange}
-                  placeholder="0.00"
-                  disabled={loading}
-                />
-              </Form.Group>
-            </div>
-            
-            <div className="col-md-6">
-              <Form.Group className="mb-3">
-                <Form.Label>
-                  <i className="fas fa-tags me-2"></i>
-                  Tagovi (opciono)
-                </Form.Label>
-                <Form.Control
-                  type="text"
-                  name="tags"
-                  value={formData.tags}
-                  onChange={handleChange}
-                  placeholder="kultura, istorija, priroda..."
-                  disabled={loading}
-                />
-                <Form.Text className="text-muted">
-                  Tagovi razdvojeni zarezom za lakše pretraganje
-                </Form.Text>
-              </Form.Group>
-            </div>
-          </div>
+          <Form.Group className="mb-3">
+            <Form.Label>
+              <i className="fas fa-tags me-2"></i>
+              Tagovi (opciono)
+            </Form.Label>
+            <Form.Control
+              type="text"
+              name="tags"
+              value={formData.tags}
+              onChange={handleChange}
+              placeholder="kultura, istorija, priroda..."
+              disabled={loading}
+            />
+            <Form.Text className="text-muted">
+              Tagovi razdvojeni zarezom za lakše pretraganje
+            </Form.Text>
+          </Form.Group>
 
           <div className="alert alert-info">
             <i className="fas fa-info-circle me-2"></i>

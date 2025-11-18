@@ -16,12 +16,12 @@ func (s *Store) CreateKeyPoint(req *model.CreateKeyPointRequest) (*model.KeyPoin
 	}
 
 	query := `
-		INSERT INTO key_points (tour_id, name, description, latitude, longitude, order_index)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO key_points (tour_id, name, description, latitude, longitude, image_url, order_index)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
 
 	result, err := s.db.Exec(query, req.TourID, req.Name, req.Description,
-		req.Latitude, req.Longitude, orderIndex)
+		req.Latitude, req.Longitude, req.ImageURL, orderIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func (s *Store) CreateKeyPoint(req *model.CreateKeyPointRequest) (*model.KeyPoin
 // GetKeyPointByID vraća ključnu tačku po ID-u
 func (s *Store) GetKeyPointByID(id int64) (*model.KeyPoint, error) {
 	query := `
-		SELECT id, tour_id, name, description, latitude, longitude,
+		SELECT id, tour_id, name, description, latitude, longitude, image_url,
 		       order_index, created_at, updated_at
 		FROM key_points WHERE id = ?
 	`
@@ -55,7 +55,7 @@ func (s *Store) GetKeyPointByID(id int64) (*model.KeyPoint, error) {
 
 	err := row.Scan(
 		&keyPoint.ID, &keyPoint.TourID, &keyPoint.Name, &keyPoint.Description,
-		&keyPoint.Latitude, &keyPoint.Longitude,
+		&keyPoint.Latitude, &keyPoint.Longitude, &keyPoint.ImageURL,
 		&keyPoint.OrderIndex, &keyPoint.CreatedAt, &keyPoint.UpdatedAt,
 	)
 
@@ -69,7 +69,7 @@ func (s *Store) GetKeyPointByID(id int64) (*model.KeyPoint, error) {
 // GetKeyPoints vraća sve ključne tačke za turu, sortirane po order_index
 func (s *Store) GetKeyPoints(tourID int64) ([]model.KeyPoint, error) {
 	query := `
-		SELECT id, tour_id, name, description, latitude, longitude,
+		SELECT id, tour_id, name, description, latitude, longitude, image_url,
 		       order_index, created_at, updated_at
 		FROM key_points 
 		WHERE tour_id = ? 
@@ -87,7 +87,7 @@ func (s *Store) GetKeyPoints(tourID int64) ([]model.KeyPoint, error) {
 		keyPoint := model.KeyPoint{}
 		err := rows.Scan(
 			&keyPoint.ID, &keyPoint.TourID, &keyPoint.Name, &keyPoint.Description,
-			&keyPoint.Latitude, &keyPoint.Longitude,
+			&keyPoint.Latitude, &keyPoint.Longitude, &keyPoint.ImageURL,
 			&keyPoint.OrderIndex, &keyPoint.CreatedAt, &keyPoint.UpdatedAt,
 		)
 		if err != nil {
