@@ -31,3 +31,11 @@ type BlogLike struct {
 	UserID    int64     `json:"userId"`
 	CreatedAt time.Time `json:"createdAt"`
 }
+
+// BlogImage predstavlja sliku povezanu sa blog postom
+type BlogImage struct {
+	ID        int64     `json:"id"`
+	BlogID    int64     `json:"blogId"`
+	ImageURL  string    `json:"imageUrl"`
+	CreatedAt time.Time `json:"createdAt"`
+}

@@ -4,9 +4,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gin-gonic/gin"
 	"blog-service/internal/model"
 	"blog-service/internal/store"
+
+	"github.com/gin-gonic/gin"
 )
 
 type BlogHandler struct {
@@ -17,6 +18,7 @@ func NewBlogHandler(store *store.Store) *BlogHandler {
 	return &BlogHandler{store: store}
 }
 
+// CreateBlogPost kreira novi blog post
 // CreateBlogPost kreira novi blog post
 func (h *BlogHandler) CreateBlogPost(c *gin.Context) {
 	userID, exists := c.Get("userID")
@@ -38,11 +40,21 @@ func (h *BlogHandler) CreateBlogPost(c *gin.Context) {
 		Content:     req.Content,
 	}
 
+	// 1️⃣ prvo kreiramo sam blog post
 	if err := h.store.CreateBlogPost(post); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create blog post"})
 		return
 	}
 
+	// 2️⃣ ako postoje slike — čuvamo ih
+	if len(req.Images) > 0 {
+		if err := h.store.CreateBlogImages(post.ID, req.Images); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save images"})
+			return
+		}
+	}
+
+	// 3️⃣ vraćamo korisniku potvrdu
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Blog post created successfully",
 		"post":    post,

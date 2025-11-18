@@ -4,10 +4,11 @@ import (
 	"log"
 	"os"
 
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
 	"api-gateway/internal/handler"
 	"api-gateway/internal/middleware"
+
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -45,7 +46,7 @@ func main() {
 
 	// Initialize handlers
 	gatewayHandler := handler.NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL)
-	
+
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(authServiceURL)
 
@@ -71,21 +72,18 @@ func main() {
 		users.DELETE("/profile", gatewayHandler.ProxyToStakeholders)
 	}
 
-	// Blog routes (some auth required, some not)
+	// Blog routes – AUTORIZACIJU radi SAMO blog-service
 	blog := router.Group("/api/blog")
 	{
-		// Public routes
+		// javne rute
 		blog.GET("/posts", gatewayHandler.ProxyToBlog)
 		blog.GET("/posts/:id", gatewayHandler.ProxyToBlog)
-		
-		// Protected routes
-		protected := blog.Group("")
-		protected.Use(authMiddleware.ValidateToken())
-		{
-			protected.POST("/posts", gatewayHandler.ProxyToBlog)
-			protected.PUT("/posts/:id", gatewayHandler.ProxyToBlog)
-			protected.DELETE("/posts/:id", gatewayHandler.ProxyToBlog)
-		}
+
+		// zaštićene – ali gateway ih samo PROKSIRA,
+		// a blog-service ima svoj AuthMiddleware koji proverava token
+		blog.POST("/posts", gatewayHandler.ProxyToBlog)
+		blog.PUT("/posts/:id", gatewayHandler.ProxyToBlog)
+		blog.DELETE("/posts/:id", gatewayHandler.ProxyToBlog)
 	}
 
 	// Admin routes (auth required)
