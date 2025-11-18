@@ -67,7 +67,7 @@ func (s *Store) GetTourByID(id int64) (*model.Tour, error) {
 func (s *Store) GetToursByAuthor(authorID int64) ([]model.TourListItem, error) {
 	query := `
 		SELECT t.id, t.name, t.description, t.difficulty_level, t.status, t.price,
-		       t.distance_km, t.published_at
+		       t.distance_km, t.published_at, t.tags, t.created_at
 		FROM tours t
 		WHERE t.author_id = ?
 		ORDER BY t.created_at DESC
@@ -82,12 +82,22 @@ func (s *Store) GetToursByAuthor(authorID int64) ([]model.TourListItem, error) {
 	var tours []model.TourListItem
 	for rows.Next() {
 		tour := model.TourListItem{}
+		var tagsJSON sql.NullString
+		
 		err := rows.Scan(
 			&tour.ID, &tour.Name, &tour.Description, &tour.Difficulty,
 			&tour.Status, &tour.Price, &tour.DistanceKm, &tour.PublishedAt,
+			&tagsJSON, &tour.CreatedAt,
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		// Parse tags JSON
+		if tagsJSON.Valid {
+			tour.Tags = tagsJSON.String
+		} else {
+			tour.Tags = "[]"
 		}
 
 		// Dodaj prvu ključnu tačku ako postoji
@@ -105,7 +115,7 @@ func (s *Store) GetToursByAuthor(authorID int64) ([]model.TourListItem, error) {
 func (s *Store) GetPublishedTours() ([]model.TourListItem, error) {
 	query := `
 		SELECT t.id, t.name, t.description, t.difficulty_level, t.status, t.price,
-		       t.distance_km, t.published_at
+		       t.distance_km, t.published_at, t.tags, t.created_at
 		FROM tours t
 		WHERE t.status = 'PUBLISHED'
 		ORDER BY t.published_at DESC
@@ -120,12 +130,22 @@ func (s *Store) GetPublishedTours() ([]model.TourListItem, error) {
 	var tours []model.TourListItem
 	for rows.Next() {
 		tour := model.TourListItem{}
+		var tagsJSON sql.NullString
+		
 		err := rows.Scan(
 			&tour.ID, &tour.Name, &tour.Description, &tour.Difficulty,
 			&tour.Status, &tour.Price, &tour.DistanceKm, &tour.PublishedAt,
+			&tagsJSON, &tour.CreatedAt,
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		// Parse tags JSON
+		if tagsJSON.Valid {
+			tour.Tags = tagsJSON.String
+		} else {
+			tour.Tags = "[]"
 		}
 
 		// Dodaj samo prvu ključnu tačku (ostale se ne pokazuju turistima)

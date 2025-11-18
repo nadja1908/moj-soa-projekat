@@ -96,9 +96,11 @@ type TourListItem struct {
 	Name          string         `json:"name"`
 	Description   string         `json:"description"`
 	Difficulty    TourDifficulty `json:"difficulty"`
+	Tags          string         `json:"tags"` // JSON array kao string
 	Status        TourStatus     `json:"status"`
 	Price         float64        `json:"price"`
 	DistanceKm    float64        `json:"distanceKm"`
 	PublishedAt   sql.NullTime   `json:"publishedAt"`
+	CreatedAt     time.Time      `json:"createdAt"`
 	FirstKeyPoint *KeyPoint      `json:"firstKeyPoint"`
 }

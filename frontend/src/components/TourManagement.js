@@ -79,6 +79,47 @@ const TourManagement = () => {
     );
   };
 
+  const parseTagsFromString = (tagsString) => {
+    if (!tagsString) return [];
+    
+    try {
+      // Ako je već niz
+      if (Array.isArray(tagsString)) {
+        return tagsString;
+      }
+      
+      // Ako je JSON string
+      const parsed = JSON.parse(tagsString);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      // Ako nije validan JSON, podeli po zarez
+      return tagsString.split(',').map(tag => tag.trim()).filter(tag => tag);
+    }
+  };
+
+  const renderTags = (tagsString) => {
+    const tags = parseTagsFromString(tagsString);
+    
+    if (!tags || tags.length === 0) {
+      return <span className="text-muted">-</span>;
+    }
+    
+    return (
+      <div className="d-flex flex-wrap gap-1">
+        {tags.slice(0, 3).map((tag, index) => (
+          <Badge key={index} bg="info" className="text-dark" style={{ fontSize: '0.7rem' }}>
+            {tag}
+          </Badge>
+        ))}
+        {tags.length > 3 && (
+          <Badge bg="light" className="text-dark" style={{ fontSize: '0.7rem' }}>
+            +{tags.length - 3}
+          </Badge>
+        )}
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ height: '400px' }}>
@@ -126,6 +167,7 @@ const TourManagement = () => {
                       <th>Naziv</th>
                       <th>Opis</th>
                       <th>Težina</th>
+                      <th>Tagovi</th>
                       <th>Status</th>
                       <th>Cena (€)</th>
                       <th>Rastojanje (km)</th>
@@ -147,6 +189,7 @@ const TourManagement = () => {
                           </div>
                         </td>
                         <td>{getDifficultyBadge(tour.difficulty)}</td>
+                        <td>{renderTags(tour.tags)}</td>
                         <td>{getStatusBadge(tour.status)}</td>
                         <td>€{tour.price || '0.00'}</td>
                         <td>{tour.distanceKm || '0.0'} km</td>
