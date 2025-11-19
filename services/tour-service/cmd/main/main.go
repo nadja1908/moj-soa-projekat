@@ -98,11 +98,16 @@ func main() {
 	r.POST("/api/tours/:id/reactivate", authMiddleware, tourHandler.ReactivateTour)
 	r.DELETE("/api/tours/:id", authMiddleware, tourHandler.DeleteTour)
 
-	// Key points management
+	// Key points management (original routes)
 	r.POST("/api/tours/keypoints", authMiddleware, keyPointHandler.CreateKeyPoint)
 	r.GET("/api/tours/keypoints/:id", authMiddleware, keyPointHandler.GetKeyPoint)
 	r.PUT("/api/tours/keypoints/:id", authMiddleware, keyPointHandler.UpdateKeyPoint)
 	r.DELETE("/api/tours/keypoints/:id", authMiddleware, keyPointHandler.DeleteKeyPoint)
+
+	// Key points management (Gateway-compatible routes)
+	// Gateway removes /api/keypoints prefix, then ProxyToTours adds /api/tours prefix
+	// So /api/keypoints/tour/123 becomes -> "" -> /tour/123 -> /api/tours/tour/123
+	r.GET("/api/tours/tour/:tourId", authMiddleware, keyPointHandler.GetTourKeyPoints) // Gateway: GET /api/keypoints/tour/:tourId -> GET /api/tours/tour/:tourId
 
 	// Key points reorder (posebna grupa)
 	r.POST("/api/keypoints/reorder/:tourId", authMiddleware, keyPointHandler.ReorderKeyPoints)

@@ -202,3 +202,50 @@ func (h *GatewayHandler) proxyRequest(c *gin.Context, targetURL string) {
 	c.Status(resp.StatusCode)
 	c.Writer.Write(respBody)
 }
+
+// ////////////////////////
+// KEYPOINTS PROXY
+// ////////////////////////
+func (h *GatewayHandler) ProxyToKeyPoints(c *gin.Context) {
+	log.Printf("DEBUG: ProxyToKeyPoints called!")
+
+	// Remove /api/keypoints prefix and map to tour service keypoints routes
+	path := strings.TrimPrefix(c.Request.URL.Path, "/api/keypoints")
+
+	log.Printf("DEBUG: ProxyToKeyPoints path after trim: %s", path)
+
+	// Get user info from auth middleware context (if available)
+	if userIDInterface, exists := c.Get("userID"); exists {
+		if userRoleInterface, exists := c.Get("userRole"); exists {
+			// Cast from interface{} to proper types
+			if userID, ok := userIDInterface.(int); ok {
+				if userRole, ok := userRoleInterface.(string); ok {
+					// Add user info as headers for tour service
+					c.Request.Header.Set("X-User-ID", fmt.Sprintf("%d", userID))
+					c.Request.Header.Set("X-User-Role", userRole)
+					log.Printf("DEBUG: ProxyToKeyPoints set headers - X-User-ID: %d, X-User-Role: %s", userID, userRole)
+				}
+			}
+		}
+	}
+
+	// Map keypoints routes to tour service routes
+	var targetPath string
+	if path == "" {
+		// POST /api/keypoints -> /api/tours/keypoints
+		targetPath = "/api/tours/keypoints"
+	} else if strings.HasPrefix(path, "/tour/") {
+		// GET /api/keypoints/tour/123 -> /api/keypoints/tour/123 (već postoji u tour service)
+		targetPath = "/api/keypoints" + path
+	} else if strings.HasPrefix(path, "/reorder/") {
+		// POST /api/keypoints/reorder/123 -> /api/keypoints/reorder/123 (već postoji u tour service)
+		targetPath = "/api/keypoints" + path
+	} else {
+		// GET/PUT/DELETE /api/keypoints/123 -> /api/tours/keypoints/123
+		targetPath = "/api/tours/keypoints" + path
+	}
+
+	targetURL := h.tourServiceURL + targetPath
+	log.Printf("DEBUG: ProxyToKeyPoints proxying to: %s", targetURL)
+	h.proxyRequest(c, targetURL)
+}

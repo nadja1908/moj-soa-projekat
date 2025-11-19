@@ -149,12 +149,12 @@ func main() {
 	keypoints := router.Group("/api/keypoints")
 	keypoints.Use(authMiddleware.ValidateToken())
 	{
-		keypoints.POST("", gatewayHandler.ProxyToTours)
-		keypoints.GET("/:id", gatewayHandler.ProxyToTours)
-		keypoints.PUT("/:id", gatewayHandler.ProxyToTours)
-		keypoints.DELETE("/:id", gatewayHandler.ProxyToTours)
-		keypoints.GET("/tour/:tourId", gatewayHandler.ProxyToTours)
-		keypoints.POST("/reorder/:tourId", gatewayHandler.ProxyToTours)
+		keypoints.POST("", gatewayHandler.ProxyToKeyPoints)
+		keypoints.GET("/:id", gatewayHandler.ProxyToKeyPoints)
+		keypoints.PUT("/:id", gatewayHandler.ProxyToKeyPoints)
+		keypoints.DELETE("/:id", gatewayHandler.ProxyToKeyPoints)
+		keypoints.GET("/tour/:tourId", gatewayHandler.ProxyToKeyPoints)
+		keypoints.POST("/reorder/:tourId", gatewayHandler.ProxyToKeyPoints)
 	}
 	log.Printf("DEBUG: Keypoints routes configured successfully!")
 

@@ -57,7 +57,7 @@ type KeyPoint struct {
 	Description string    `json:"description" db:"description"`
 	Latitude    float64   `json:"latitude" db:"latitude"`
 	Longitude   float64   `json:"longitude" db:"longitude"`
-	ImageURL    string    `json:"imageUrl" db:"image_url"`
+	ImageURL    *string   `json:"imageUrl" db:"image_url"`
 	OrderIndex  int       `json:"orderIndex" db:"order_index"`
 	CreatedAt   time.Time `json:"createdAt" db:"created_at"`
 	UpdatedAt   time.Time `json:"updatedAt" db:"updated_at"`
