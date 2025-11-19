@@ -97,14 +97,18 @@ func main() {
 	// Blog routes - blog-service handles its own auth
 	blog := router.Group("/api/blog")
 	{
-		// Public routes
+		// Public
 		blog.GET("/posts", gatewayHandler.ProxyToBlog)
 		blog.GET("/posts/:id", gatewayHandler.ProxyToBlog)
 
-		// Protected routes - blog-service has its own auth middleware
+		// Protected
 		blog.POST("/posts", gatewayHandler.ProxyToBlog)
 		blog.PUT("/posts/:id", gatewayHandler.ProxyToBlog)
 		blog.DELETE("/posts/:id", gatewayHandler.ProxyToBlog)
+
+		// Upload slika
+		blog.POST("/uploads", gatewayHandler.ProxyToBlog)
+		blog.GET("/uploads/*filepath", gatewayHandler.ProxyToBlog)
 	}
 
 	// Admin routes (auth required)
