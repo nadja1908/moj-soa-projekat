@@ -1,62 +1,27 @@
-import React, { useState } from 'react';
-import { Form, Button, Card, Alert, Container } from 'react-bootstrap';
-import { useNavigate } from 'react-router-dom';
-import { blogApi } from '../services/api';
-import { useAuth } from '../context/AuthContext';
+import React, { useState } from "react";
+import { Form, Button, Card, Alert, Container, Row, Col } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
+import { blogApi } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 const CreatePost = () => {
   const [formData, setFormData] = useState({
-    title: '',
-    content: ''
+    title: "",
+    description: "",
+    content: "",
+    imageUrls: ""
   });
-  const [error, setError] = useState('');
+
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    if (formData.title.trim().length < 5) {
-      setError('Naslov mora imati najmanje 5 karaktera');
-      setLoading(false);
-      return;
-    }
-
-    if (formData.content.trim().length < 20) {
-      setError('Sadržaj mora imati najmanje 20 karaktera');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      await blogApi.post('/posts', {
-        title: formData.title.trim(),
-        content: formData.content.trim()
-      });
-      
-      navigate('/posts');
-    } catch (error) {
-      console.error('Error creating post:', error);
-      setError(error.response?.data?.error || 'Greška pri kreiranju posta');
-    }
-    
-    setLoading(false);
-  };
-
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-  };
-
-  if (!user || (user.role !== 'guide' && user.role !== 'administrator')) {
+  // samo vodič i admin
+  if (!user || (user.role !== "guide" && user.role !== "administrator")) {
     return (
-      <Container>
-        <Alert variant="warning" className="text-center">
+      <Container className="py-5">
+        <Alert variant="warning" className="text-center shadow-sm">
           <Alert.Heading>⚠️ Nemate dozvolu</Alert.Heading>
           <p>Samo vodiči i administratori mogu kreirati blog postove.</p>
         </Alert>
@@ -64,107 +29,172 @@ const CreatePost = () => {
     );
   }
 
+  const handleChange = (e) => {
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    // Validacija
+    if (formData.title.length < 5) {
+      setError("Naslov mora imati najmanje 5 karaktera.");
+      setLoading(false);
+      return;
+    }
+    if (formData.description.length < 10) {
+      setError("Opis mora imati najmanje 10 karaktera.");
+      setLoading(false);
+      return;
+    }
+    if (formData.content.length < 20) {
+      setError("Sadržaj mora imati najmanje 20 karaktera.");
+      setLoading(false);
+      return;
+    }
+
+    const images = formData.imageUrls
+      .split("\n")
+      .map((url) => url.trim())
+      .filter((u) => u !== "");
+
+    const payload = {
+      title: formData.title,
+      description: formData.description,
+      content: formData.content,
+      images
+    };
+
+    try {
+      const token = localStorage.getItem("token");
+      console.log("CreatePost token:", token);
+      console.log("CreatePost payload:", payload);
+
+      if (!token) {
+        setError("Niste autentifikovani. Pokušajte ponovo da se prijavite.");
+        setLoading(false);
+        return;
+      }
+
+      // NE šaljemo ručno headers, blogApi interceptor već dodaje Authorization
+      const res = await blogApi.post("/posts", payload);
+
+      console.log("USPESNO!", res.data);
+      navigate("/posts");
+    } catch (err) {
+      console.error("CreatePost error:", err);
+
+      const status = err.response?.status;
+      const serverMsg = err.response?.data?.error || err.response?.data?.message;
+
+      setError(
+        `Greška pri kreiranju posta. ` +
+        (status ? `Status: ${status}. ` : "") +
+        (serverMsg ? `Poruka servera: ${serverMsg}` : "")
+      );
+    }
+
+    setLoading(false);
+  };
+
   return (
-    <div className="container">
-      <div className="row justify-content-center">
-        <div className="col-lg-8">
-          <Card className="border-0 shadow-sm">
-            <Card.Body className="p-4">
-              <div className="text-center mb-4">
-                <h2 className="display-6 text-primary">✍️ Kreiraj novi blog post</h2>
-                <p className="lead text-muted">Podelite svoja iskustva sa zajednicom</p>
+    <Container className="py-5">
+      <Row className="justify-content-center">
+        <Col lg={10} xl={8}>
+          <Card className="border-0 shadow-lg rounded-4">
+            <Card.Body className="p-5">
+              <div className="text-center mb-5">
+                <h2 className="fw-bold text-primary">✍️ Kreiraj novi blog post</h2>
+                <p className="text-muted">Dodaj naslov, opis, sadržaj i slike</p>
               </div>
 
               {error && <Alert variant="danger">{error}</Alert>}
 
               <Form onSubmit={handleSubmit}>
                 <Form.Group className="mb-4">
-                  <Form.Label className="fw-bold">📝 Naslov posta</Form.Label>
+                  <Form.Label className="fw-bold">📝 Naslov</Form.Label>
                   <Form.Control
                     type="text"
                     name="title"
                     value={formData.title}
                     onChange={handleChange}
-                    placeholder="Unesite naslov vašeg blog posta..."
-                    required
                     maxLength={200}
-                    className="form-control-lg"
+                    placeholder="Npr. Putovanje u Rim"
+                    required
                   />
-                  <Form.Text className="text-muted">
-                    {formData.title.length}/200 karaktera
-                  </Form.Text>
                 </Form.Group>
 
                 <Form.Group className="mb-4">
-                  <Form.Label className="fw-bold">📖 Sadržaj posta</Form.Label>
+                  <Form.Label className="fw-bold">📌 Kratak opis (Markdown)</Form.Label>
                   <Form.Control
                     as="textarea"
-                    rows={12}
+                    rows={3}
+                    name="description"
+                    value={formData.description}
+                    onChange={handleChange}
+                    placeholder="Kratak opis, može **markdown**"
+                    required
+                    maxLength={500}
+                  />
+                </Form.Group>
+
+                <Form.Group className="mb-4">
+                  <Form.Label className="fw-bold">📖 Sadržaj (Markdown)</Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={10}
                     name="content"
                     value={formData.content}
                     onChange={handleChange}
-                    placeholder="Napišite sadržaj vašeg blog posta...&#10;&#10;Možete pisati o:&#10;• Turističkim destinacijama koje ste posetili&#10;• Savetima za putovanja&#10;• Lokalnim specijalitetima&#10;• Kulturnim atrakcijama&#10;• Vašim iskustvima kao vodič/turista"
+                    placeholder="# Dan 1\nPoseta Koloseumu..."
                     required
                     maxLength={5000}
                   />
-                  <Form.Text className="text-muted">
-                    {formData.content.length}/5000 karaktera
-                  </Form.Text>
                 </Form.Group>
 
-                <div className="d-flex gap-3 mb-4">
-                  <Button 
-                    variant="primary" 
-                    type="submit" 
-                    disabled={loading}
+                <Form.Group className="mb-4">
+                  <Form.Label className="fw-bold">🖼️ Slike (URL – po jedna u redu)</Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={3}
+                    name="imageUrls"
+                    value={formData.imageUrls}
+                    onChange={handleChange}
+                    placeholder={
+                      "https://example.com/slika1.jpg\nhttps://example.com/slika2.png"
+                    }
+                  />
+                </Form.Group>
+
+                <div className="d-flex gap-3">
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="lg"
                     className="flex-grow-1"
-                    size="lg"
                   >
-                    {loading ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                        Objavljivanje...
-                      </>
-                    ) : (
-                      '🚀 Objavi post'
-                    )}
+                    {loading ? "Objavljivanje..." : "🚀 Objavi blog"}
                   </Button>
-                  
-                  <Button 
-                    variant="outline-secondary" 
-                    onClick={() => navigate('/posts')}
-                    disabled={loading}
+
+                  <Button
+                    variant="outline-secondary"
                     size="lg"
+                    onClick={() => navigate("/posts")}
                   >
-                    ❌ Odustani
+                    Odustani
                   </Button>
                 </div>
               </Form>
-
-              <div className="p-4 bg-light rounded">
-                <h6 className="mb-3">💡 Saveti za pisanje dobrog blog posta:</h6>
-                <div className="row">
-                  <div className="col-md-6">
-                    <ul className="small text-muted mb-0">
-                      <li>Koristite zanimljiv i deskriptivan naslov</li>
-                      <li>Pišite jasno i razumljivo</li>
-                      <li>Podelite lična iskustva i savete</li>
-                    </ul>
-                  </div>
-                  <div className="col-md-6">
-                    <ul className="small text-muted mb-0">
-                      <li>Dodajte korisne informacije za čitaoce</li>
-                      <li>Budite poštovani prema svim korisnicima</li>
-                      <li>Strukturirajte tekst u logičke celine</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
             </Card.Body>
           </Card>
-        </div>
-      </div>
-    </div>
+        </Col>
+      </Row>
+    </Container>
   );
 };
 

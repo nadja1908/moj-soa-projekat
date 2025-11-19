@@ -11,7 +11,7 @@ import (
 func (s *Store) CreateBlogPost(post *model.BlogPost) error {
 	query := `INSERT INTO blog_posts (user_id, title, description, content) 
 			  VALUES (?, ?, ?, ?)`
-	
+
 	result, err := s.db.Exec(query, post.UserID, post.Title, post.Description, post.Content)
 	if err != nil {
 		return fmt.Errorf("failed to create blog post: %w", err)
@@ -45,8 +45,8 @@ func (s *Store) GetAllBlogPosts() ([]model.BlogPost, error) {
 	var posts []model.BlogPost
 	for rows.Next() {
 		var post model.BlogPost
-		err := rows.Scan(&post.ID, &post.UserID, &post.Title, &post.Description, 
-						&post.Content, &post.CreatedAt, &post.UpdatedAt, &post.LikesCount)
+		err := rows.Scan(&post.ID, &post.UserID, &post.Title, &post.Description,
+			&post.Content, &post.CreatedAt, &post.UpdatedAt, &post.LikesCount)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan blog post: %w", err)
 		}
@@ -68,9 +68,9 @@ func (s *Store) GetBlogPostByID(id int64) (*model.BlogPost, error) {
 
 	var post model.BlogPost
 	row := s.db.QueryRow(query, id)
-	err := row.Scan(&post.ID, &post.UserID, &post.Title, &post.Description, 
-				   &post.Content, &post.CreatedAt, &post.UpdatedAt, &post.LikesCount)
-	
+	err := row.Scan(&post.ID, &post.UserID, &post.Title, &post.Description,
+		&post.Content, &post.CreatedAt, &post.UpdatedAt, &post.LikesCount)
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -85,7 +85,7 @@ func (s *Store) GetBlogPostByID(id int64) (*model.BlogPost, error) {
 func (s *Store) CreateComment(comment *model.BlogComment) error {
 	query := `INSERT INTO blog_comments (blog_id, user_id, comment_text) 
 			  VALUES (?, ?, ?)`
-	
+
 	result, err := s.db.Exec(query, comment.BlogID, comment.UserID, comment.CommentText)
 	if err != nil {
 		return fmt.Errorf("failed to create comment: %w", err)
@@ -116,8 +116,8 @@ func (s *Store) GetCommentsByBlogID(blogID int64) ([]model.BlogComment, error) {
 	var comments []model.BlogComment
 	for rows.Next() {
 		var comment model.BlogComment
-		err := rows.Scan(&comment.ID, &comment.BlogID, &comment.UserID, 
-						&comment.CommentText, &comment.CreatedAt, &comment.UpdatedAt)
+		err := rows.Scan(&comment.ID, &comment.BlogID, &comment.UserID,
+			&comment.CommentText, &comment.CreatedAt, &comment.UpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan comment: %w", err)
 		}
@@ -156,4 +156,42 @@ func (s *Store) IsPostLikedByUser(userID, blogID int64) (bool, error) {
 		return false, fmt.Errorf("failed to check if post is liked: %w", err)
 	}
 	return count > 0, nil
+}
+
+func (s *Store) CreateBlogImages(blogID int64, imageURLs []string) error {
+	if len(imageURLs) == 0 {
+		return nil
+	}
+
+	query := `INSERT INTO blog_images (blog_id, image_url) VALUES (?, ?)`
+
+	for _, url := range imageURLs {
+		_, err := s.db.Exec(query, blogID, url)
+		if err != nil {
+			return fmt.Errorf("failed to insert blog image: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (s *Store) GetImagesByBlogID(blogID int64) ([]model.BlogImage, error) {
+	rows, err := s.db.Query(
+		`SELECT id, blog_id, image_url, created_at 
+         FROM blog_images 
+         WHERE blog_id = ?`,
+		blogID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var images []model.BlogImage
+	for rows.Next() {
+		var img model.BlogImage
+		rows.Scan(&img.ID, &img.BlogID, &img.ImageURL, &img.CreatedAt)
+		images = append(images, img)
+	}
+	return images, nil
 }

@@ -46,9 +46,9 @@ func main() {
 	// Disable automatic redirect for trailing slash to avoid CORS issues
 	router.RedirectTrailingSlash = false
 
-	// Configure CORS
+	// Configure CORS - include both old and new allowed origins
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"http://localhost:3000", "http://127.0.0.1:3000"}
+	config.AllowOrigins = []string{"http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000"}
 	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"}
 	config.AllowHeaders = []string{
 		"Origin",
@@ -63,7 +63,7 @@ func main() {
 	config.ExposeHeaders = []string{"Content-Length"}
 	router.Use(cors.New(config))
 
-	// Initialize handlers
+	// Initialize handlers - include all services
 	log.Printf("DEBUG: Creating gateway handler with tour URL: %s", tourServiceURL)
 	gatewayHandler := handler.NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, tourServiceURL)
 	log.Printf("DEBUG: Gateway handler created successfully!")
@@ -82,7 +82,7 @@ func main() {
 		auth.POST("/login", gatewayHandler.ProxyToAuth)
 		auth.POST("/register", gatewayHandler.ProxyToAuth)
 		auth.POST("/refresh", gatewayHandler.ProxyToAuth)
-		auth.GET("/validate", gatewayHandler.ProxyToAuth) // Added missing validate route
+		auth.GET("/validate", gatewayHandler.ProxyToAuth)
 	}
 
 	// User routes (auth required)
@@ -94,21 +94,17 @@ func main() {
 		users.DELETE("/profile", gatewayHandler.ProxyToStakeholders)
 	}
 
-	// Blog routes (some auth required, some not)
+	// Blog routes - blog-service handles its own auth
 	blog := router.Group("/api/blog")
 	{
 		// Public routes
 		blog.GET("/posts", gatewayHandler.ProxyToBlog)
 		blog.GET("/posts/:id", gatewayHandler.ProxyToBlog)
 
-		// Protected routes
-		protected := blog.Group("")
-		protected.Use(authMiddleware.ValidateToken())
-		{
-			protected.POST("/posts", gatewayHandler.ProxyToBlog)
-			protected.PUT("/posts/:id", gatewayHandler.ProxyToBlog)
-			protected.DELETE("/posts/:id", gatewayHandler.ProxyToBlog)
-		}
+		// Protected routes - blog-service has its own auth middleware
+		blog.POST("/posts", gatewayHandler.ProxyToBlog)
+		blog.PUT("/posts/:id", gatewayHandler.ProxyToBlog)
+		blog.DELETE("/posts/:id", gatewayHandler.ProxyToBlog)
 	}
 
 	// Admin routes (auth required)

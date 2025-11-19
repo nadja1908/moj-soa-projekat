@@ -79,9 +79,23 @@ tourApi.interceptors.request.use(requestInterceptor);
 // Add error interceptors to all APIs
 authApi.interceptors.response.use((response) => response, handleAuthError);
 usersApi.interceptors.response.use((response) => response, handleAuthError);
-blogApi.interceptors.response.use((response) => response, handleAuthError);
 adminApi.interceptors.response.use((response) => response, handleAuthError);
 tourApi.interceptors.response.use((response) => response, handleAuthError);
+
+// Special blog API interceptor with detailed error logging
+blogApi.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('blogApi error:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      data: error.response?.data,
+      headers: error.response?.headers,
+    });
+    return Promise.reject(error);
+  }
+);
 
 // Backward compatibility exports
 const stakeholdersApi = usersApi;
