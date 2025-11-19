@@ -85,14 +85,23 @@ func (s *Store) GetKeyPoints(tourID int64) ([]model.KeyPoint, error) {
 	var keyPoints []model.KeyPoint
 	for rows.Next() {
 		keyPoint := model.KeyPoint{}
+		var imageURL sql.NullString
 		err := rows.Scan(
 			&keyPoint.ID, &keyPoint.TourID, &keyPoint.Name, &keyPoint.Description,
-			&keyPoint.Latitude, &keyPoint.Longitude, &keyPoint.ImageURL,
+			&keyPoint.Latitude, &keyPoint.Longitude, &imageURL,
 			&keyPoint.OrderIndex, &keyPoint.CreatedAt, &keyPoint.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
+
+		// Convert sql.NullString to *string
+		if imageURL.Valid {
+			keyPoint.ImageURL = &imageURL.String
+		} else {
+			keyPoint.ImageURL = nil
+		}
+
 		keyPoints = append(keyPoints, keyPoint)
 	}
 

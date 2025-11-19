@@ -3,17 +3,26 @@ import { Card, Button, Table, Badge, Alert, Spinner, Modal, Row, Col } from 'rea
 import { tourApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import CreateTourModal from './CreateTourModal';
+import KeyPointsMap from './KeyPointsMap';
 
 const TourManagement = () => {
   const [tours, setTours] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [selectedTour, setSelectedTour] = useState(null);
   const { user } = useAuth();
 
   useEffect(() => {
+    console.log('TourManagement useEffect - user:', user);
+    console.log('User role:', user?.role);
+    
     if (user && user.role === 'guide') {
+      console.log('Fetching my tours...');
       fetchMyTours();
+    } else {
+      console.log('User not authenticated or not a guide');
     }
   }, [user]);
 
@@ -37,6 +46,11 @@ const TourManagement = () => {
   const handleTourCreated = (newTour) => {
     setTours(prevTours => [newTour, ...prevTours]);
     setShowCreateModal(false);
+  };
+
+  const handleKeyPointsClick = (tour) => {
+    setSelectedTour(tour);
+    setShowMapModal(true);
   };
 
   const getStatusBadge = (status) => {
@@ -206,14 +220,15 @@ const TourManagement = () => {
                               size="sm"
                               title="Izmeni turu"
                             >
-                              <i className="fas fa-edit"></i>
+                              ✏️
                             </Button>
                             <Button
                               variant="outline-info" 
                               size="sm"
                               title="Ključne tačke"
+                              onClick={() => handleKeyPointsClick(tour)}
                             >
-                              <i className="fas fa-map-marker-alt"></i>
+                              🗺️
                             </Button>
                             {tour.status === 'DRAFT' && (
                               <Button
@@ -221,7 +236,7 @@ const TourManagement = () => {
                                 size="sm"
                                 title="Objavi turu"
                               >
-                                <i className="fas fa-upload"></i>
+                                📤
                               </Button>
                             )}
                             <Button
@@ -229,7 +244,7 @@ const TourManagement = () => {
                               size="sm"
                               title="Obriši turu"
                             >
-                              <i className="fas fa-trash"></i>
+                              🗑️
                             </Button>
                           </div>
                         </td>
@@ -248,6 +263,14 @@ const TourManagement = () => {
         show={showCreateModal}
         onHide={() => setShowCreateModal(false)}
         onTourCreated={handleTourCreated}
+      />
+
+      {/* Modal za upravljanje ključnim tačkama */}
+      <KeyPointsMap 
+        show={showMapModal}
+        onHide={() => setShowMapModal(false)}
+        tourId={selectedTour?.id}
+        tourName={selectedTour?.name}
       />
     </div>
   );

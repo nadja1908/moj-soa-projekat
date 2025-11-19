@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -84,17 +85,25 @@ func (h *KeyPointHandler) GetKeyPoint(c *gin.Context) {
 
 // GetTourKeyPoints vraća sve ključne tačke za turu
 func (h *KeyPointHandler) GetTourKeyPoints(c *gin.Context) {
+	log.Printf("DEBUG: GetTourKeyPoints called for tourId: %s", c.Param("tourId"))
+
 	tourID, err := strconv.ParseInt(c.Param("tourId"), 10, 64)
 	if err != nil {
+		log.Printf("DEBUG: Invalid tour ID error: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tour ID"})
 		return
 	}
 
+	log.Printf("DEBUG: Parsed tour ID: %d", tourID)
+
 	keyPoints, err := h.store.GetKeyPoints(tourID)
 	if err != nil {
+		log.Printf("DEBUG: Store GetKeyPoints error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get key points"})
 		return
 	}
+
+	log.Printf("DEBUG: Retrieved %d key points", len(keyPoints))
 
 	c.JSON(http.StatusOK, gin.H{
 		"success":   true,
