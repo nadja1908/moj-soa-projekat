@@ -12,6 +12,14 @@ type BlogPost struct {
 	CreatedAt   time.Time `json:"createdAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
 	LikesCount  int       `json:"likesCount"`
+	Author      *Author   `json:"author,omitempty"`
+}
+
+// Author predstavlja autora blog posta
+type Author struct {
+	ID       int64  `json:"id"`
+	Username string `json:"username"`
+	Email    string `json:"email,omitempty"`
 }
 
 // BlogComment predstavlja komentar na blog post
@@ -29,5 +37,13 @@ type BlogLike struct {
 	ID        int64     `json:"id"`
 	BlogID    int64     `json:"blogId"`
 	UserID    int64     `json:"userId"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+// BlogImage predstavlja sliku povezanu sa blog postom
+type BlogImage struct {
+	ID        int64     `json:"id"`
+	BlogID    int64     `json:"blogId"`
+	ImageURL  string    `json:"imageUrl"`
 	CreatedAt time.Time `json:"createdAt"`
 }

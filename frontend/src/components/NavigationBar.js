@@ -38,6 +38,90 @@ const NavigationBar = () => {
     }
   };
 
+  const getNavigationLinks = () => {
+    if (!user) {
+      return null;
+    }
+    
+    // Bazni linkovi za sve autentifikovane korisnike
+    const baseLinks = null;
+    
+    // Blog link samo za guide i tourist (ne za admin)
+    const blogLink = (user.role === 'guide' || user.role === 'tourist') ? (
+      <Link
+        to="/posts"
+        className="text-gray-700 hover:text-orange-600 font-medium transition-colors duration-200 text-sm xl:text-base"
+      >
+        📰 Blog
+      </Link>
+    ) : null;
+    
+    const roleSpecificLinks = (() => {
+      switch (user.role) {
+        case 'administrator':
+          return (
+            <>
+              <Link
+                to="/create-post"
+                className="text-gray-700 hover:text-amber-600 font-medium text-sm xl:text-base transition-colors duration-200"
+              >
+                ✍️ Novi Post
+              </Link>
+              <Link
+                to="/admin"
+                className="text-gray-700 hover:text-rose-600 font-medium text-sm xl:text-base transition-colors duration-200"
+              >
+                👑 Admin Panel
+              </Link>
+            </>
+          );
+        case 'guide':
+          return (
+            <>
+              <Link
+                to="/create-post"
+                className="text-gray-700 hover:text-amber-600 font-medium text-sm xl:text-base transition-colors duration-200"
+              >
+                ✍️ Novi Post
+              </Link>
+              <Link
+                to="/guide/tours"
+                className="text-gray-700 hover:text-orange-600 font-medium transition-colors duration-200 text-sm xl:text-base flex items-center"
+              >
+                🗺️ Moje ture
+              </Link>
+            </>
+          );
+        case 'tourist':
+          return (
+            <>
+              <Link
+                to="/create-post"
+                className="text-gray-700 hover:text-amber-600 font-medium text-sm xl:text-base transition-colors duration-200"
+              >
+                ✍️ Novi Post
+              </Link>
+              <Link
+                to="/tours"
+                className="text-gray-700 hover:text-orange-600 font-medium transition-colors duration-200 text-sm xl:text-base flex items-center"
+              >
+                🎒 Dostupne ture
+              </Link>
+            </>
+          );
+        default:
+          return null;
+      }
+    })();
+    
+    return (
+      <>
+        {blogLink}
+        {roleSpecificLinks}
+      </>
+    );
+  };
+
   return (
     <nav className="bg-white shadow-lg border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-6xl xl:max-w-7xl mx-auto px-4">
@@ -53,6 +137,7 @@ const NavigationBar = () => {
 
           {/* Desktop meni */}
           <div className="hidden md:flex items-center space-x-4 xl:space-x-6">
+            {getNavigationLinks()}
           </div>
 
           {/* User sekcija */}

@@ -27,7 +27,8 @@ func main() {
 	defer store.Close()
 
 	// Inicijalizacija handler-a
-	blogHandler := handler.NewBlogHandler(store)
+	stakeholdersServiceURL := getEnv("STAKEHOLDERS_SERVICE_URL", "http://stakeholders-service:8001")
+	blogHandler := handler.NewBlogHandler(store, stakeholdersServiceURL)
 
 	// Gin setup
 	r := gin.Default()

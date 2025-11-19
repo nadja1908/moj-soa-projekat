@@ -2,7 +2,9 @@ package handler
 
 import (
 	"bytes"
+	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -13,97 +15,188 @@ type GatewayHandler struct {
 	authServiceURL         string
 	stakeholdersServiceURL string
 	blogServiceURL         string
+	tourServiceURL         string
 }
 
-func NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL string) *GatewayHandler {
+func NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, tourServiceURL string) *GatewayHandler {
 	return &GatewayHandler{
 		authServiceURL:         authServiceURL,
 		stakeholdersServiceURL: stakeholdersServiceURL,
 		blogServiceURL:         blogServiceURL,
+		tourServiceURL:         tourServiceURL,
 	}
 }
 
+// ////////////////////////
+// AUTH SERVICE PROXY
+// ////////////////////////
 func (h *GatewayHandler) ProxyToAuth(c *gin.Context) {
-	// Remove /api/auth prefix and proxy to auth service
 	path := strings.TrimPrefix(c.Request.URL.Path, "/api/auth")
+	if path == "" {
+		path = "/"
+	}
+
+	log.Printf("DEBUG: ProxyToAuth - Original path: %s, Final path: %s", c.Request.URL.Path, path)
+	log.Printf("DEBUG: ProxyToAuth - Target URL: %s", h.authServiceURL+path)
 	h.proxyRequest(c, h.authServiceURL+path)
 }
 
+// ////////////////////////
+// STAKEHOLDERS SERVICE PROXY
+// ////////////////////////
 func (h *GatewayHandler) ProxyToStakeholders(c *gin.Context) {
-	// Remove /api/users or /api/admin prefix and proxy to stakeholders service
-	path := c.Request.URL.Path
-	if strings.HasPrefix(path, "/api/users") {
-		path = strings.TrimPrefix(path, "/api/users")
+	original := c.Request.URL.Path
+	path := original
+
+	if strings.HasPrefix(original, "/api/users") {
+		path = strings.TrimPrefix(original, "/api/users")
 		if path == "" {
 			path = "/profile"
 		}
-	} else if strings.HasPrefix(path, "/api/admin/users") {
-		path = strings.TrimPrefix(path, "/api/admin")
 	}
-	
-	h.proxyRequest(c, h.stakeholdersServiceURL+path)
+
+	if strings.HasPrefix(original, "/api/admin/users") {
+		path = strings.TrimPrefix(original, "/api/admin")
+	}
+
+	final := h.stakeholdersServiceURL + path
+	log.Println("[ProxyToStakeholders] →", final)
+	h.proxyRequest(c, final)
 }
 
+// ////////////////////////
+// BLOG SERVICE PROXY
+// ////////////////////////
 func (h *GatewayHandler) ProxyToBlog(c *gin.Context) {
-	// Remove /api/blog or /api/admin prefix and proxy to blog service
-	path := c.Request.URL.Path
-	if strings.HasPrefix(path, "/api/blog") {
-		path = strings.TrimPrefix(path, "/api/blog")
-	} else if strings.HasPrefix(path, "/api/admin/posts") {
-		path = strings.TrimPrefix(path, "/api/admin/posts")
-		path = "/posts" + path
+	// DEBUG: Šta je STIGLO IZ BROWSER-a
+	log.Println("------------------------------------------------")
+	log.Println("[ProxyToBlog] ORIGINAL PATH:", c.Request.URL.Path)
+	log.Println("[ProxyToBlog] AUTH FROM CLIENT:", c.GetHeader("Authorization"))
+
+	original := c.Request.URL.Path
+	path := original
+
+	// Javne blog rute
+	if strings.HasPrefix(original, "/api/blog") {
+		path = strings.TrimPrefix(original, "/api/blog")
+		if path == "" {
+			path = "/"
+		}
 	}
-	
-	h.proxyRequest(c, h.blogServiceURL+path)
+
+	// Admin blog rute
+	if strings.HasPrefix(original, "/api/admin/posts") {
+		path = strings.TrimPrefix(original, "/api/admin")
+		if !strings.HasPrefix(path, "/posts") {
+			path = "/posts" + path
+		}
+	}
+
+	finalURL := h.blogServiceURL + path
+	log.Println("[ProxyToBlog] FINAL URL:", finalURL)
+
+	h.proxyRequest(c, finalURL)
 }
 
-func (h *GatewayHandler) proxyRequest(c *gin.Context, targetURL string) {
-	// Read request body
-	var bodyBytes []byte
-	if c.Request.Body != nil {
-		bodyBytes, _ = io.ReadAll(c.Request.Body)
-		c.Request.Body.Close()
+// ////////////////////////
+// TOUR SERVICE PROXY
+// ////////////////////////
+func (h *GatewayHandler) ProxyToTours(c *gin.Context) {
+	log.Printf("DEBUG: ProxyToTours called!")
+
+	// Remove /api/tours prefix and proxy to tour service
+	path := strings.TrimPrefix(c.Request.URL.Path, "/api/tours")
+
+	// If path is empty, keep it empty for root endpoint
+	if path == "" {
+		// path stays empty - will become "/api/tours" without trailing slash
 	}
 
-	// Create new request
-	req, err := http.NewRequest(c.Request.Method, targetURL, bytes.NewBuffer(bodyBytes))
+	log.Printf("DEBUG: ProxyToTours path after fix: %s", path)
+
+	// Get user info from auth middleware context (if available)
+	if userIDInterface, exists := c.Get("userID"); exists {
+		if userRoleInterface, exists := c.Get("userRole"); exists {
+			// Cast from interface{} to proper types
+			if userID, ok := userIDInterface.(int); ok {
+				if userRole, ok := userRoleInterface.(string); ok {
+					// Add user info as headers for tour service
+					c.Request.Header.Set("X-User-ID", fmt.Sprintf("%d", userID))
+					c.Request.Header.Set("X-User-Role", userRole)
+					log.Printf("DEBUG: ProxyToTours set headers - X-User-ID: %d, X-User-Role: %s", userID, userRole)
+				}
+			}
+		}
+	}
+
+	// Tour service expects full path with /api/tours prefix
+	targetURL := h.tourServiceURL + "/api/tours" + path
+	log.Printf("DEBUG: ProxyToTours proxying to: %s", targetURL)
+	h.proxyRequest(c, targetURL)
+}
+
+// ////////////////////////
+// MASTER PROXY LOGIKA
+// ////////////////////////
+func (h *GatewayHandler) proxyRequest(c *gin.Context, targetURL string) {
+	log.Printf("DEBUG: proxyRequest called with URL: %s", targetURL)
+
+	// 1) UČITAJ BODY IZ REQUESTA
+	bodyBytes, _ := io.ReadAll(c.Request.Body)
+	c.Request.Body.Close()
+
+	req, err := http.NewRequest(c.Request.Method, targetURL, bytes.NewReader(bodyBytes))
 	if err != nil {
+		log.Printf("ERROR: Failed to create proxy request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create proxy request"})
 		return
 	}
 
-	// Copy headers
-	for name, values := range c.Request.Header {
-		for _, value := range values {
-			req.Header.Add(name, value)
+	// 2) PRENESI SVE HEADER-e (uključujući AUTH)
+	for k, v := range c.Request.Header {
+		for _, val := range v {
+			req.Header.Add(k, val)
 		}
 	}
 
-	// Copy query parameters
+	// DEBUG — DA VIDIMO DA LI JE AUTH ZAISTA PROSLEĐEN
+	log.Println("[Proxy] SENDING →", targetURL)
+	log.Println("[Proxy] AUTH FORWARDED:", req.Header.Get("Authorization"))
+
+	// 3) Query parametri
 	req.URL.RawQuery = c.Request.URL.RawQuery
 
-	// Make request
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	log.Printf("DEBUG: Making request to: %s %s", req.Method, req.URL.String())
+
+	// 4) POŠALJI DALJE SERVISU
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to proxy request: " + err.Error()})
+		log.Printf("ERROR: Failed to proxy request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Proxy error: " + err.Error()})
 		return
 	}
 	defer resp.Body.Close()
 
-	// Copy response headers
-	for name, values := range resp.Header {
-		for _, value := range values {
-			c.Header(name, value)
+	log.Printf("DEBUG: Response status: %d", resp.StatusCode)
+
+	// 5) PREKOPIRAJ HEADER-e NAZAD KLIJENTU
+	for k, v := range resp.Header {
+		for _, val := range v {
+			c.Header(k, val)
 		}
 	}
 
-	// Copy response body
+	// 6) PREKOPIRAJ BODY
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
+		log.Printf("ERROR: Failed to read response: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response"})
 		return
 	}
+
+	// DEBUG — ŠTA SERVICE VRAĆA
+	log.Printf("[Proxy RESPONSE] Status=%d Body=%s", resp.StatusCode, string(respBody))
+	log.Println("------------------------------------------------")
 
 	// Set status and write response
 	c.Status(resp.StatusCode)

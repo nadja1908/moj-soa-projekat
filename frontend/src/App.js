@@ -4,6 +4,9 @@ import NavigationBar from './components/NavigationBar';
 import Login from './components/Login';
 import Register from './components/Register';
 import AdminPanel from './components/AdminPanel';
+import TourManagement from './components/TourManagement';
+import BlogPosts from './components/BlogPosts';
+import CreatePost from './components/CreatePost';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 function AppContent() {
@@ -19,6 +22,12 @@ function AppContent() {
     );
   }
 
+  const getRedirectPath = (user) => {
+    if (!user) return "/login";
+    // Svi korisnici idu na blog kao početnu stranicu
+    return "/posts";
+  };
+
   return (
     <div className="min-h-screen bg-white">
       <NavigationBar />
@@ -26,24 +35,52 @@ function AppContent() {
         <Routes>
           <Route 
             path="/login" 
-            element={!user ? <Login /> : <Navigate to={user.role === 'administrator' ? "/admin" : "/login"} />} 
+            element={!user ? <Login /> : <Navigate to={getRedirectPath(user)} />} 
           />
           <Route 
             path="/register" 
-            element={!user ? <Register /> : <Navigate to={user.role === 'administrator' ? "/admin" : "/login"} />} 
+            element={!user ? <Register /> : <Navigate to={getRedirectPath(user)} />} 
           />
+          
+          {/* Administrator rute */}
           <Route 
             path="/admin" 
             element={user && user.role === 'administrator' ? <AdminPanel /> : <Navigate to="/login" />} 
           />
+          
+          {/* Guide rute */}
+          <Route 
+            path="/guide/tours" 
+            element={user && user.role === 'guide' ? <TourManagement /> : <Navigate to="/login" />} 
+          />
+          
+          {/* Tourist rute */}
+          <Route 
+            path="/tours" 
+            element={user && user.role === 'tourist' ? <div>Tourist Tours View (TODO)</div> : <Navigate to="/login" />} 
+          />
+          
+          {/* Blog rute - dostupne svim korisnicima */}
+          <Route 
+            path="/posts" 
+            element={<BlogPosts />} 
+          />
+          
+          {/* Create Post - za sve autentifikovane korisnike */}
+          <Route 
+            path="/create-post" 
+            element={user ? <CreatePost /> : <Navigate to="/login" />} 
+          />
+          
           <Route 
             path="/" 
-            element={<Navigate to={user ? (user.role === 'administrator' ? "/admin" : "/login") : "/login"} />} 
+            element={<Navigate to={getRedirectPath(user)} />} 
           />
+          
           {/* Catch-all route za sve nepoznate putanje */}
           <Route 
             path="*" 
-            element={<Navigate to={user ? (user.role === 'administrator' ? "/admin" : "/login") : "/login"} />} 
+            element={<Navigate to={getRedirectPath(user)} />} 
           />
         </Routes>
       </div>

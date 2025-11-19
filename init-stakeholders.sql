@@ -24,9 +24,10 @@ CREATE TABLE IF NOT EXISTS profiles (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Ubacivanje test administratora
+-- Ubacivanje test administratora i vodiča
 INSERT IGNORE INTO users (username, password, email, role) VALUES 
-('admin', '$2a$10$zwx73C.axL2CyPD1R55cVO7gSVq48I9I31E0qnxD8dQuTo474a0Hm', 'admin@example.com', 'administrator');
+('admin', '$2a$10$zwx73C.axL2CyPD1R55cVO7gSVq48I9I31E0qnxD8dQuTo474a0Hm', 'admin@example.com', 'administrator'),
+('marko_vodic', '$2a$10$zwx73C.axL2CyPD1R55cVO7gSVq48I9I31E0qnxD8dQuTo474a0Hm', 'marko@example.com', 'guide');
 -- Lozinka je "password123" - hashirana sa bcrypt
 
 -- Kreiranje indeksa za performanse
