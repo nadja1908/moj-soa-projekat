@@ -17,13 +17,13 @@ const CreatePost = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // samo vodič i admin
-  if (!user || (user.role !== "guide" && user.role !== "administrator")) {
+  // Svi autentifikovani korisnici mogu kreirati blog
+  if (!user) {
     return (
       <Container className="py-5">
         <Alert variant="warning" className="text-center shadow-sm">
           <Alert.Heading>⚠️ Nemate dozvolu</Alert.Heading>
-          <p>Samo vodiči i administratori mogu kreirati blog postove.</p>
+          <p>Morate se prijaviti da biste mogli da kreirate blog postove.</p>
         </Alert>
       </Container>
     );

@@ -39,41 +39,87 @@ const NavigationBar = () => {
   };
 
   const getNavigationLinks = () => {
-    if (!user) return null;
-    
-    switch (user.role) {
-      case 'administrator':
-        return (
-          <Link
-            to="/admin"
-            className="text-gray-700 hover:text-orange-600 font-medium transition-colors duration-200 text-sm xl:text-base"
-          >
-            Admin Panel
-          </Link>
-        );
-      case 'guide':
-        return (
-          <Link
-            to="/guide/tours"
-            className="text-gray-700 hover:text-orange-600 font-medium transition-colors duration-200 text-sm xl:text-base flex items-center"
-          >
-            <i className="fas fa-route me-2"></i>
-            Moje ture
-          </Link>
-        );
-      case 'tourist':
-        return (
-          <Link
-            to="/tours"
-            className="text-gray-700 hover:text-orange-600 font-medium transition-colors duration-200 text-sm xl:text-base flex items-center"
-          >
-            <i className="fas fa-map me-2"></i>
-            Dostupne ture
-          </Link>
-        );
-      default:
-        return null;
+    if (!user) {
+      return null;
     }
+    
+    // Bazni linkovi za sve autentifikovane korisnike
+    const baseLinks = null;
+    
+    // Blog link samo za guide i tourist (ne za admin)
+    const blogLink = (user.role === 'guide' || user.role === 'tourist') ? (
+      <Link
+        to="/posts"
+        className="text-gray-700 hover:text-orange-600 font-medium transition-colors duration-200 text-sm xl:text-base"
+      >
+        📰 Blog
+      </Link>
+    ) : null;
+    
+    const roleSpecificLinks = (() => {
+      switch (user.role) {
+        case 'administrator':
+          return (
+            <>
+              <Link
+                to="/create-post"
+                className="text-gray-700 hover:text-amber-600 font-medium text-sm xl:text-base transition-colors duration-200"
+              >
+                ✍️ Novi Post
+              </Link>
+              <Link
+                to="/admin"
+                className="text-gray-700 hover:text-rose-600 font-medium text-sm xl:text-base transition-colors duration-200"
+              >
+                👑 Admin Panel
+              </Link>
+            </>
+          );
+        case 'guide':
+          return (
+            <>
+              <Link
+                to="/create-post"
+                className="text-gray-700 hover:text-amber-600 font-medium text-sm xl:text-base transition-colors duration-200"
+              >
+                ✍️ Novi Post
+              </Link>
+              <Link
+                to="/guide/tours"
+                className="text-gray-700 hover:text-orange-600 font-medium transition-colors duration-200 text-sm xl:text-base flex items-center"
+              >
+                🗺️ Moje ture
+              </Link>
+            </>
+          );
+        case 'tourist':
+          return (
+            <>
+              <Link
+                to="/create-post"
+                className="text-gray-700 hover:text-amber-600 font-medium text-sm xl:text-base transition-colors duration-200"
+              >
+                ✍️ Novi Post
+              </Link>
+              <Link
+                to="/tours"
+                className="text-gray-700 hover:text-orange-600 font-medium transition-colors duration-200 text-sm xl:text-base flex items-center"
+              >
+                🎒 Dostupne ture
+              </Link>
+            </>
+          );
+        default:
+          return null;
+      }
+    })();
+    
+    return (
+      <>
+        {blogLink}
+        {roleSpecificLinks}
+      </>
+    );
   };
 
   return (

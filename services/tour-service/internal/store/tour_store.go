@@ -83,7 +83,7 @@ func (s *Store) GetToursByAuthor(authorID int64) ([]model.TourListItem, error) {
 	for rows.Next() {
 		tour := model.TourListItem{}
 		var tagsJSON sql.NullString
-		
+
 		err := rows.Scan(
 			&tour.ID, &tour.Name, &tour.Description, &tour.Difficulty,
 			&tour.Status, &tour.Price, &tour.DistanceKm, &tour.PublishedAt,
@@ -131,7 +131,7 @@ func (s *Store) GetPublishedTours() ([]model.TourListItem, error) {
 	for rows.Next() {
 		tour := model.TourListItem{}
 		var tagsJSON sql.NullString
-		
+
 		err := rows.Scan(
 			&tour.ID, &tour.Name, &tour.Description, &tour.Difficulty,
 			&tour.Status, &tour.Price, &tour.DistanceKm, &tour.PublishedAt,

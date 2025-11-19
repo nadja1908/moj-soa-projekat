@@ -16,11 +16,26 @@ const BlogPosts = () => {
   const fetchPosts = async () => {
     try {
       setLoading(true);
+      setError('');
       const response = await blogApi.get('/posts');
-      setPosts(response.data || []);
+      console.log('BlogPosts API response:', response);
+      console.log('Response data:', response.data);
+      console.log('Type of response.data:', typeof response.data);
+      
+      // Ensure we always have an array
+      const postsData = response.data;
+      if (Array.isArray(postsData)) {
+        setPosts(postsData);
+      } else if (postsData && postsData.posts && Array.isArray(postsData.posts)) {
+        setPosts(postsData.posts);
+      } else {
+        console.warn('API did not return array, setting empty array');
+        setPosts([]);
+      }
     } catch (error) {
       console.error('Error fetching posts:', error);
-      setError('Greška pri učitavanju blog postova');
+      setError('Greška pri učitavanju blog postova. Proverite da li je blog servis pokrenut.');
+      setPosts([]); // Ensure posts is empty array on error
     } finally {
       setLoading(false);
     }
@@ -85,7 +100,7 @@ const BlogPosts = () => {
             <h1 className="display-5">📰 Blog Postovi</h1>
             <p className="lead text-muted">Istražite najnovije blog postove o turističkim destinacijama</p>
           </div>
-          {user && (user.role === 'guide' || user.role === 'administrator') && (
+          {user && (
             <Button variant="primary" href="/create-post" size="lg">
               ✍️ Novi Post
             </Button>
@@ -98,18 +113,23 @@ const BlogPosts = () => {
           <Card className="text-center py-5 border-0 shadow-sm">
             <Card.Body>
               <div className="feature-icon">📝</div>
-              <h3>Nema dostupnih postova</h3>
+              <h3>Nema dostupnih blogova</h3>
               <p className="text-muted">Trenutno nema objavljenih blog postova.</p>
-              {user && (user.role === 'guide' || user.role === 'administrator') && (
+              {user && (
                 <Button variant="primary" href="/create-post" className="mt-2">
-                  Budi prvi koji će objaviti post!
+                  ✍️ Dodaj novi blog
                 </Button>
+              )}
+              {!user && (
+                <p className="text-muted mt-2">
+                  <small>Prijavite se da biste mogli da kreirate blog postove</small>
+                </p>
               )}
             </Card.Body>
           </Card>
         ) : (
           <div className="blog-posts-grid">
-            {posts.map((post) => (
+            {Array.isArray(posts) && posts.map((post) => (
               <Card key={post.id} className="blog-post-card border-0 shadow-sm">
                 <Card.Body className="card-body-flex">
                   <div className="card-content">

@@ -107,10 +107,10 @@ services:
       stakeholders-service:
         condition: service_healthy
 
-  # 5. Blog Servis (Node.js)
+  # 5. Blog Servis (Go)
   blog-service:
     build:
-      context: ./services/blog-service-nodejs
+      context: ./services/blog-service
       dockerfile: Dockerfile
     ports:
       - "8002:8002"

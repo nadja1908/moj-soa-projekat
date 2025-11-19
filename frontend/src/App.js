@@ -5,6 +5,8 @@ import Login from './components/Login';
 import Register from './components/Register';
 import AdminPanel from './components/AdminPanel';
 import TourManagement from './components/TourManagement';
+import BlogPosts from './components/BlogPosts';
+import CreatePost from './components/CreatePost';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 function AppContent() {
@@ -22,12 +24,8 @@ function AppContent() {
 
   const getRedirectPath = (user) => {
     if (!user) return "/login";
-    switch (user.role) {
-      case 'administrator': return "/admin";
-      case 'guide': return "/guide/tours";
-      case 'tourist': return "/tours";
-      default: return "/login";
-    }
+    // Svi korisnici idu na blog kao početnu stranicu
+    return "/posts";
   };
 
   return (
@@ -60,6 +58,18 @@ function AppContent() {
           <Route 
             path="/tours" 
             element={user && user.role === 'tourist' ? <div>Tourist Tours View (TODO)</div> : <Navigate to="/login" />} 
+          />
+          
+          {/* Blog rute - dostupne svim korisnicima */}
+          <Route 
+            path="/posts" 
+            element={<BlogPosts />} 
+          />
+          
+          {/* Create Post - za sve autentifikovane korisnike */}
+          <Route 
+            path="/create-post" 
+            element={user ? <CreatePost /> : <Navigate to="/login" />} 
           />
           
           <Route 

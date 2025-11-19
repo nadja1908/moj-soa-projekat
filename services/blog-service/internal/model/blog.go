@@ -12,6 +12,14 @@ type BlogPost struct {
 	CreatedAt   time.Time `json:"createdAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
 	LikesCount  int       `json:"likesCount"`
+	Author      *Author   `json:"author,omitempty"`
+}
+
+// Author predstavlja autora blog posta
+type Author struct {
+	ID       int64  `json:"id"`
+	Username string `json:"username"`
+	Email    string `json:"email,omitempty"`
 }
 
 // BlogComment predstavlja komentar na blog post

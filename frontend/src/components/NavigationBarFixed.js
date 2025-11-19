@@ -62,6 +62,37 @@ const NavigationBar = () => {
 
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center space-x-6">
+            {user && (
+              <>
+                {(user.role === 'guide' || user.role === 'tourist') && (
+                  <Link 
+                    to="/posts" 
+                    className="flex items-center space-x-1 text-gray-700 hover:text-indigo-600 transition-colors duration-200 font-medium"
+                  >
+                    <span>📰</span>
+                    <span>Blog</span>
+                  </Link>
+                )}
+                
+                <Link 
+                  to="/create-post" 
+                  className="flex items-center space-x-1 text-gray-700 hover:text-indigo-600 transition-colors duration-200 font-medium"
+                >
+                  <span>✍️</span>
+                  <span>Novi Post</span>
+                </Link>
+                
+                {user.role === 'administrator' && (
+                  <Link 
+                    to="/admin" 
+                    className="flex items-center space-x-1 text-gray-700 hover:text-indigo-600 transition-colors duration-200 font-medium"
+                  >
+                    <span>👑</span>
+                    <span>Admin Panel</span>
+                  </Link>
+                )}
+              </>
+            )}
           </div>
 
           {/* User Section */}
