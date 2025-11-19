@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"blog-service/internal/model"
 	"blog-service/internal/store"
@@ -11,11 +14,17 @@ import (
 )
 
 type BlogHandler struct {
-	store *store.Store
+	store                *store.Store
+	stakeholdersServiceURL string
+	httpClient           *http.Client
 }
 
-func NewBlogHandler(store *store.Store) *BlogHandler {
-	return &BlogHandler{store: store}
+func NewBlogHandler(store *store.Store, stakeholdersServiceURL string) *BlogHandler {
+	return &BlogHandler{
+		store:                store,
+		stakeholdersServiceURL: stakeholdersServiceURL,
+		httpClient:           &http.Client{Timeout: 5 * time.Second},
+	}
 }
 
 // CreateBlogPost kreira novi blog post
@@ -69,7 +78,10 @@ func (h *BlogHandler) GetAllBlogPosts(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"posts": posts})
+	// Dodaj author informacije
+	h.enrichPostsWithAuthors(posts)
+
+	c.JSON(http.StatusOK, posts)
 }
 
 // GetBlogPost vraća specifičan blog post
