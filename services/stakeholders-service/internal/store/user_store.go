@@ -129,3 +129,52 @@ func (s *Store) UnblockUser(userID int64) error {
 	}
 	return nil
 }
+
+func (s *Store) GetFullProfileByUserID(userID int64) (*model.Profile, error) {
+    profile := &model.Profile{}
+
+    query := `
+        SELECT
+            p.id, p.user_id, p.first_name, p.last_name,
+            p.profile_image_url, p.biography, p.motto
+        FROM profiles p
+        WHERE p.user_id = ?
+    `
+
+    row := s.db.QueryRow(query, userID)
+    err := row.Scan(
+        &profile.ID,
+        &profile.UserID,
+        &profile.FirstName,
+        &profile.LastName,
+        &profile.ProfileImageURL,
+        &profile.Biography,
+        &profile.Motto,
+    )
+
+    if err != nil {
+        if err == sql.ErrNoRows {
+            return nil, nil
+        }
+        return nil, fmt.Errorf("failed to get profile by user ID: %w", err)
+    }
+
+    return profile, nil
+}
+
+func (s *Store) UpdateProfile(userID int64, firstName, lastName, biography, motto, profileImageURL string) error {
+    query := `UPDATE profiles SET first_name=?, last_name=?, biography=?, motto=?`
+    args := []interface{}{firstName, lastName, biography, motto}
+
+    if profileImageURL != "" {
+        query += ", profile_image_url=?"
+        args = append(args, profileImageURL)
+    }
+
+    query += " WHERE user_id=?"
+    args = append(args, userID)
+
+    _, err := s.db.Exec(query, args...)
+    return err
+}
+

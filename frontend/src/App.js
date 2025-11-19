@@ -8,6 +8,7 @@ import TourManagement from './components/TourManagement';
 import BlogPosts from './components/BlogPosts';
 import CreatePost from './components/CreatePost';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import ProfilePage from './components/ProfilePage';
 
 function AppContent() {
   const { user, loading } = useAuth();
@@ -81,6 +82,11 @@ function AppContent() {
           <Route 
             path="*" 
             element={<Navigate to={getRedirectPath(user)} />} 
+          />
+
+          <Route 
+            path="/profile" 
+            element={user ? <ProfilePage /> : <Navigate to="/login" />} 
           />
         </Routes>
       </div>

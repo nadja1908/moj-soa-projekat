@@ -1,5 +1,5 @@
 # Stage 1: Build faza
-FROM golang:1.21-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 # Radni direktorijum unutar kontejnera
 WORKDIR /app
@@ -22,6 +22,8 @@ RUN apk --no-cache add ca-certificates wget
 
 WORKDIR /root/
 COPY --from=builder /app/main .
+
+COPY assets/images /root/images
 
 EXPOSE 8001
 CMD ["./main"]

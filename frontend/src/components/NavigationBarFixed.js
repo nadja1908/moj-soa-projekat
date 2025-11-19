@@ -106,7 +106,9 @@ const NavigationBar = () => {
                 
                 {/* User Info */}
                 <div className="hidden md:block">
-                  <div className="text-sm font-semibold text-gray-900">{user.username}</div>
+                  <div className="text-sm font-semibold text-gray-900">
+                    <Link to="/profile">{user.username}</Link>
+                  </div>
                   <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${getRoleBadgeStyle(user.role)}`}>
                     <span className="mr-1">{getRoleIcon(user.role)}</span>
                     {getRoleDisplayName(user.role)}
