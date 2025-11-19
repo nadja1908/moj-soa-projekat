@@ -121,10 +121,11 @@ services:
       - DB_HOST=blog-db
       - DB_NAME=blog_db
       - AUTH_SERVICE_URL=http://auth-service:8003
+      - STAKEHOLDERS_SERVICE_URL=http://stakeholders-service:8001
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      test: ["CMD", "wget", "-q", "--timeout=10", "-O", "/dev/null", "http://127.0.0.1:8002/health"]
       interval: 30s
       timeout: 10s
       retries: 5

@@ -70,6 +70,51 @@ func (h *BlogHandler) CreateBlogPost(c *gin.Context) {
 	})
 }
 
+// fetchAuthor dohvata informacije o autoru iz stakeholders servisa
+func (h *BlogHandler) fetchAuthor(userID int64) *model.Author {
+	url := fmt.Sprintf("%s/internal/users/%d", h.stakeholdersServiceURL, userID)
+	
+	resp, err := h.httpClient.Get(url)
+	if err != nil {
+		fmt.Printf("Error fetching author: %v\n", err)
+		return nil
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("Non-OK status from stakeholders service: %d\n", resp.StatusCode)
+		return nil
+	}
+	
+	var response struct {
+		User struct {
+			ID       int64  `json:"id"`
+			Username string `json:"username"`
+			Email    string `json:"email"`
+		} `json:"user"`
+	}
+	
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		fmt.Printf("Error decoding user response: %v\n", err)
+		return nil
+	}
+	
+	return &model.Author{
+		ID:       response.User.ID,
+		Username: response.User.Username,
+		Email:    response.User.Email,
+	}
+}
+
+// enrichPostsWithAuthors dodaje author informacije u blog postove
+func (h *BlogHandler) enrichPostsWithAuthors(posts []model.BlogPost) {
+	for i := range posts {
+		if author := h.fetchAuthor(posts[i].UserID); author != nil {
+			posts[i].Author = author
+		}
+	}
+}
+
 // GetAllBlogPosts vraća sve blog postove
 func (h *BlogHandler) GetAllBlogPosts(c *gin.Context) {
 	posts, err := h.store.GetAllBlogPosts()
