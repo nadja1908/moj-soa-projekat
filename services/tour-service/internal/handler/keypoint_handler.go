@@ -1,9 +1,14 @@
 package handler
 
 import (
+	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"time"
 
 	"tour-service/internal/model"
 	"tour-service/internal/store"
@@ -27,10 +32,81 @@ func (h *KeyPointHandler) CreateKeyPoint(c *gin.Context) {
 		return
 	}
 
-	var req model.CreateKeyPointRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	// Parse multipart form
+	err := c.Request.ParseMultipartForm(32 << 20) // 32MB max
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid multipart form"})
 		return
+	}
+
+	// Extract form fields
+	tourID, err := strconv.ParseInt(c.PostForm("tourId"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tour ID"})
+		return
+	}
+
+	name := c.PostForm("name")
+	if name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Name is required"})
+		return
+	}
+
+	description := c.PostForm("description")
+
+	latitude, err := strconv.ParseFloat(c.PostForm("latitude"), 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid latitude"})
+		return
+	}
+
+	longitude, err := strconv.ParseFloat(c.PostForm("longitude"), 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid longitude"})
+		return
+	}
+
+	// Handle image upload
+	var imageURL string
+	file, header, err := c.Request.FormFile("image")
+	if err == nil && file != nil {
+		defer file.Close()
+
+		// Create uploads directory if it doesn't exist
+		uploadsDir := "./uploads/keypoints"
+		os.MkdirAll(uploadsDir, 0755)
+
+		// Generate unique filename
+		ext := filepath.Ext(header.Filename)
+		filename := fmt.Sprintf("%d_%s%s", time.Now().Unix(), name, ext)
+		imagePath := filepath.Join(uploadsDir, filename)
+
+		// Save file
+		dst, err := os.Create(imagePath)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save image"})
+			return
+		}
+		defer dst.Close()
+
+		_, err = io.Copy(dst, file)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save image"})
+			return
+		}
+
+		// Set image URL to be served by static file server
+		imageURL = fmt.Sprintf("/uploads/keypoints/%s", filename)
+	}
+
+	// Create request object
+	req := model.CreateKeyPointRequest{
+		TourID:      tourID,
+		Name:        name,
+		Description: description,
+		Latitude:    latitude,
+		Longitude:   longitude,
+		ImageURL:    imageURL,
 	}
 
 	// Proverava da li je korisnik vlasnik ture

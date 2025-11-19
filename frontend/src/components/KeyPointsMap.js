@@ -35,7 +35,8 @@ const KeyPointsMap = ({ show, onHide, tourId, tourName }) => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    imageUrl: ''
+    image: null,
+    imagePreview: ''
   });
 
   // Default centar mape (Beograd)
@@ -77,20 +78,29 @@ const KeyPointsMap = ({ show, onHide, tourId, tourName }) => {
 
     try {
       setLoading(true);
-      const payload = {
-        tourId: parseInt(tourId),
-        name: formData.name,
-        description: formData.description,
-        latitude: selectedCoordinates.lat,
-        longitude: selectedCoordinates.lng,
-        imageUrl: formData.imageUrl,
-        orderIndex: keyPoints.length
-      };
+      
+      // Kreiraj FormData objekat
+      const formDataToSend = new FormData();
+      formDataToSend.append('tourId', tourId);
+      formDataToSend.append('name', formData.name);
+      formDataToSend.append('description', formData.description);
+      formDataToSend.append('latitude', selectedCoordinates.lat);
+      formDataToSend.append('longitude', selectedCoordinates.lng);
+      formDataToSend.append('orderIndex', keyPoints.length);
+      
+      // Dodaj sliku ako je selektovana
+      if (formData.image) {
+        formDataToSend.append('image', formData.image);
+      }
 
-      await keypointsApi.post(``, payload);
+      await keypointsApi.post(``, formDataToSend, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
       
       // Reset form
-      setFormData({ name: '', description: '', imageUrl: '' });
+      setFormData({ name: '', description: '', image: null, imagePreview: '' });
       setSelectedCoordinates(null);
       setShowAddForm(false);
       
@@ -126,6 +136,17 @@ const KeyPointsMap = ({ show, onHide, tourId, tourName }) => {
       ...formData,
       [e.target.name]: e.target.value
     });
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFormData({
+        ...formData,
+        image: file,
+        imagePreview: URL.createObjectURL(file)
+      });
+    }
   };
 
   return (
@@ -236,7 +257,7 @@ const KeyPointsMap = ({ show, onHide, tourId, tourName }) => {
                       <p className="mb-2">{point.description}</p>
                       {point.imageUrl && (
                         <img 
-                          src={point.imageUrl} 
+                          src={point.imageUrl.startsWith('/') ? `http://localhost:8004${point.imageUrl}` : point.imageUrl} 
                           alt={point.name}
                           style={{ width: '100%', maxWidth: '200px', height: 'auto' }}
                         />
@@ -311,14 +332,22 @@ const KeyPointsMap = ({ show, onHide, tourId, tourName }) => {
             </Form.Group>
 
             <Form.Group className="mb-3">
-              <Form.Label>URL slike (opciono)</Form.Label>
+              <Form.Label>Slika (opciono)</Form.Label>
               <Form.Control
-                type="url"
-                name="imageUrl"
-                value={formData.imageUrl}
-                onChange={handleFormChange}
-                placeholder="https://example.com/slika.jpg"
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
               />
+              {formData.imagePreview && (
+                <div className="mt-2">
+                  <img 
+                    src={formData.imagePreview} 
+                    alt="Preview" 
+                    style={{ maxWidth: '200px', maxHeight: '150px', objectFit: 'cover' }}
+                    className="rounded"
+                  />
+                </div>
+              )}
             </Form.Group>
           </Modal.Body>
 
@@ -328,7 +357,7 @@ const KeyPointsMap = ({ show, onHide, tourId, tourName }) => {
               onClick={() => {
                 setShowAddForm(false);
                 setSelectedCoordinates(null);
-                setFormData({ name: '', description: '', imageUrl: '' });
+                setFormData({ name: '', description: '', image: null, imagePreview: '' });
               }}
             >
               Odustani
