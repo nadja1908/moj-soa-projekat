@@ -4,15 +4,16 @@ import "time"
 
 // BlogPost predstavlja blog post u sistemu
 type BlogPost struct {
-	ID          int64     `json:"id"`
-	UserID      int64     `json:"userId"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Content     string    `json:"content"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
-	LikesCount  int       `json:"likesCount"`
-	Author      *Author   `json:"author,omitempty"`
+	ID          int64       `json:"id"`
+	UserID      int64       `json:"userId"`
+	Title       string      `json:"title"`
+	Description string      `json:"description"`
+	Content     string      `json:"content"`
+	CreatedAt   time.Time   `json:"createdAt"`
+	UpdatedAt   time.Time   `json:"updatedAt"`
+	LikesCount  int         `json:"likesCount"`
+	Author      *Author     `json:"author,omitempty"`
+	Images      []BlogImage `json:"images,omitempty"` //  DODATO
 }
 
 // Author predstavlja autora blog posta

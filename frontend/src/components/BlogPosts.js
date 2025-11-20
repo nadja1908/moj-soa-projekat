@@ -20,8 +20,6 @@ const BlogPosts = () => {
       setError('');
       const response = await blogApi.get('/posts');
       console.log('BlogPosts API response:', response);
-      console.log('Response data:', response.data);
-      console.log('Type of response.data:', typeof response.data);
 
       const postsData = response.data;
       if (Array.isArray(postsData)) {
@@ -34,7 +32,9 @@ const BlogPosts = () => {
       }
     } catch (error) {
       console.error('Error fetching posts:', error);
-      setError('Greška pri učitavanju blog postova. Proverite da li je blog servis pokrenut.');
+      setError(
+        'Greška pri učitavanju blog postova. Proverite da li je blog servis pokrenut.'
+      );
       setPosts([]);
     } finally {
       setLoading(false);
@@ -71,7 +71,10 @@ const BlogPosts = () => {
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) return 'Nepoznat datum';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Nepoznat datum';
+
     return date.toLocaleDateString('sr-RS', {
       year: 'numeric',
       month: 'long',
@@ -81,22 +84,44 @@ const BlogPosts = () => {
     });
   };
 
-  // helper da uzme prvu sliku iz posta
+  //  ŠtA god backend pošalje, pokušavamo da izvučemo prvi URL slike
   const getFirstImageUrl = (post) => {
-    if (!post || !post.images || !Array.isArray(post.images) || post.images.length === 0) {
-      return null;
-    }
-    const first = post.images[0];
+    if (!post) return null;
 
-    if (typeof first === 'string') {
-      return first;
+    const candidates = [];
+
+    // 1) images: ["http://...", "http://..."]
+    if (Array.isArray(post.images)) {
+      for (const img of post.images) {
+        if (typeof img === 'string') {
+          candidates.push(img);
+        } else if (img && typeof img === 'object') {
+          if (img.imageUrl) candidates.push(img.imageUrl);
+          if (img.url) candidates.push(img.url);
+        }
+      }
     }
 
-    if (first && typeof first === 'object') {
-      return first.imageUrl || first.url || null;
+    // 2) imageUrls: "url1\nurl2" – ako backend tako šalje
+    if (typeof post.imageUrls === 'string') {
+      const parts = post.imageUrls
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      candidates.push(...parts);
     }
 
-    return null;
+    // 3) još jedna varijanta: post.blogImages = [{url: ...}, ...]
+    if (Array.isArray(post.blogImages)) {
+      for (const img of post.blogImages) {
+        if (!img) continue;
+        if (img.imageUrl) candidates.push(img.imageUrl);
+        if (img.url) candidates.push(img.url);
+      }
+    }
+
+    const first = candidates.find((u) => !!u);
+    return first || null;
   };
 
   if (loading) {
@@ -114,7 +139,9 @@ const BlogPosts = () => {
         <div className="d-flex justify-content-between align-items-center mb-5">
           <div>
             <h1 className="display-5">📰 Blog Postovi</h1>
-            <p className="lead text-muted">Istražite najnovije blog postove o turističkim destinacijama</p>
+            <p className="lead text-muted">
+              Istražite najnovije blog postove o turističkim destinacijama
+            </p>
           </div>
           {user && (
             <Button variant="primary" href="/create-post" size="lg">
@@ -152,6 +179,8 @@ const BlogPosts = () => {
             {Array.isArray(posts) &&
               posts.map((post) => {
                 const firstImageUrl = getFirstImageUrl(post);
+                const createdAt =
+                  post.createdAt || post.created_at || post.CreatedAt || null;
 
                 return (
                   <Card key={post.id} className="blog-post-card border-0 shadow-sm">
@@ -169,16 +198,30 @@ const BlogPosts = () => {
 
                     <Card.Body className="card-body-flex">
                       <div className="card-content">
-                        <h5 className="card-title mb-3">{post.title}</h5>
+                        <h5 className="card-title mb-2">{post.title}</h5>
 
-                        <div className="card-text text-muted card-text-truncate markdown-preview">
-                          <ReactMarkdown>{post.content}</ReactMarkdown>
-                        </div>
+                        {/* opis u Markdown-u */}
+                        {post.description && (
+                          <div className="text-muted small mb-2 markdown-preview">
+                            <ReactMarkdown>{post.description}</ReactMarkdown>
+                          </div>
+                        )}
+
+                        {/* sadržaj u Markdown-u (skraćeno) */}
+                        {post.content && (
+                          <div className="card-text text-muted small mb-3 markdown-preview">
+                            <ReactMarkdown>
+                              {post.content.length > 400
+                                ? post.content.slice(0, 400) + '...'
+                                : post.content}
+                            </ReactMarkdown>
+                          </div>
+                        )}
 
                         <div className="mt-auto">
-                          <div className="d-flex justify-content-between align-items-center mb-3">
+                          <div className="d-flex justify-content-between align-items-center mb-2">
                             <small className="text-muted">
-                              📅 {formatDate(post.createdAt)}
+                              📅 {formatDate(createdAt)}
                             </small>
                             <Badge bg="info" className="role-badge">
                               {post.author?.username || 'Nepoznat autor'}
@@ -191,9 +234,13 @@ const BlogPosts = () => {
                             </small>
                             <div className="d-flex align-items-center">
                               <button
-                                className={`like-button me-2 ${post.isLiked ? 'liked' : ''}`}
+                                className={`like-button me-2 ${
+                                  post.isLiked ? 'liked' : ''
+                                }`}
                                 onClick={() =>
-                                  post.isLiked ? handleUnlike(post.id) : handleLike(post.id)
+                                  post.isLiked
+                                    ? handleUnlike(post.id)
+                                    : handleLike(post.id)
                                 }
                                 disabled={!user}
                                 title={
@@ -206,7 +253,9 @@ const BlogPosts = () => {
                               >
                                 ❤️
                               </button>
-                              <small className="text-muted">{post.likes || 0}</small>
+                              <small className="text-muted">
+                                {post.likes || 0}
+                              </small>
                             </div>
                           </div>
                         </div>
@@ -222,7 +271,8 @@ const BlogPosts = () => {
           <Alert variant="info" className="mt-5 border-0 shadow-sm">
             <Alert.Heading>💡 Tip</Alert.Heading>
             <p>
-              Prijavite se da biste mogli da označavate postove kao omiljene i ostavljate komentare!
+              Prijavite se da biste mogli da označavate postove kao omiljene i ostavljate
+              komentare!
             </p>
           </Alert>
         )}
