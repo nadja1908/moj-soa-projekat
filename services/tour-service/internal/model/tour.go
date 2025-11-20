@@ -133,6 +133,7 @@ type TourListItem struct {
 	Price         float64        `json:"price"`
 	DistanceKm    float64        `json:"distanceKm"`
 	PublishedAt   *string        `json:"publishedAt"`
+	ArchivedAt    *string        `json:"archivedAt"`
 	CreatedAt     time.Time      `json:"createdAt"`
 	FirstKeyPoint *KeyPoint      `json:"firstKeyPoint"`
 }

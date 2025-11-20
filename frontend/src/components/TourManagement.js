@@ -223,6 +223,33 @@ const TourManagement = () => {
     }
   };
 
+  const handleDeleteTour = async (tour) => {
+    if (!window.confirm(`Da li ste sigurni da želite da obrišete turu "${tour.name}"?`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      
+      const response = await tourApi.delete(`/${tour.id}`);
+
+      if (response.data.success || response.status === 200) {
+        // Refresh lista tura
+        if (showAllTours) {
+          await fetchAllTours();
+        } else {
+          await fetchMyTours();
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting tour:', error);
+      setError(error.response?.data?.error || 'Greška pri brisanju ture');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Stabiliziraj selectedTour podatke
   const selectedTourData = useMemo(() => ({
     id: selectedTour?.id,
@@ -393,20 +420,8 @@ const TourManagement = () => {
                   {showAllTours ? 'Sve dostupne ture' : 'Moje ture'}
                 </h4>
                 <div className="btn-group" role="group">
-                  <button
-                    type="button"
-                    className={`btn btn-sm ${!showAllTours ? 'btn-primary' : 'btn-outline-primary'}`}
-                    onClick={() => setShowAllTours(false)}
-                  >
-                    🏠 Moje ture
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn btn-sm ${showAllTours ? 'btn-primary' : 'btn-outline-primary'}`}
-                    onClick={() => setShowAllTours(true)}
-                  >
-                    🌍 Sve ture
-                  </button>
+                 
+                  
                 </div>
               </div>
               <Button 
@@ -479,14 +494,7 @@ const TourManagement = () => {
                         </td>
                         <td>
                           <div className="d-flex gap-1">
-                            <Button
-                              variant="outline-primary"
-                              size="sm"
-                              title="Izmeni turu"
-                              disabled={tour.status === 'PUBLISHED' || tour.status === 'ARCHIVED'}
-                            >
-                              ✏️
-                            </Button>
+                           
                             <Button
                               variant="outline-info" 
                               size="sm"
@@ -536,6 +544,7 @@ const TourManagement = () => {
                                 variant="outline-danger"
                                 size="sm"
                                 title="Obriši turu"
+                                onClick={() => handleDeleteTour(tour)}
                               >
                                 🗑️
                               </Button>
