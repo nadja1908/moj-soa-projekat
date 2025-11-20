@@ -30,6 +30,16 @@ INSERT IGNORE INTO users (username, password, email, role) VALUES
 ('marko_vodic', '$2a$10$zwx73C.axL2CyPD1R55cVO7gSVq48I9I31E0qnxD8dQuTo474a0Hm', 'marko@example.com', 'guide');
 -- Lozinka je "password123" - hashirana sa bcrypt
 
+INSERT IGNORE INTO profiles (user_id, first_name, last_name, profile_image_url, biography, motto)
+VALUES (
+    2,
+    'Marko',
+    'Marković',
+    'http://localhost:8001/images/marko_vodic.png',
+    'Iskusan vodič specijalizovan za planinske ture, hiking i pešačenje. Voli prirodu, avanturu i deljenje lokalnih legendi.',
+    'Putovanje je jedino što kupujemo, a čini nas bogatijima.'
+);
+
 -- Kreiranje indeksa za performanse
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_email ON users(email);

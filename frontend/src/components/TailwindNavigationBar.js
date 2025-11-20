@@ -74,7 +74,11 @@ const NavigationBar = () => {
 
                 {/* Info */}
                 <div className="hidden md:block">
-                  <div className="text-sm font-semibold text-gray-900">{user.username}</div>
+                  <div className="text-sm font-semibold text-gray-900">
+                    <Link 
+                    className="inline-block hover:text-indigo-600 transition-colors duration-200 cursor-pointer"
+                    to="/profile">{user.username}</Link>
+                  </div>
                   <div
                     className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${getRoleBadgeStyle(
                       user.role

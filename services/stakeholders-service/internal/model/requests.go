@@ -28,3 +28,13 @@ type UpdateProfileRequest struct {
 	Biography       *string `json:"biography"`
 	Motto           *string `json:"motto"`
 }
+
+type ProfileResponse struct {
+    ID              int64  `json:"id"`
+    UserID          int64  `json:"userId"`
+    FirstName       string `json:"firstName"`
+    LastName        string `json:"lastName"`
+    ProfileImageURL string `json:"profileImageUrl"`
+    Biography       string `json:"biography"`
+    Motto           string `json:"motto"`
+}
