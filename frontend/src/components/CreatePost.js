@@ -3,6 +3,7 @@ import { Form, Button, Card, Alert, Container, Row, Col } from "react-bootstrap"
 import { useNavigate } from "react-router-dom";
 import { blogApi } from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import ReactMarkdown from "react-markdown";
 
 const CreatePost = () => {
   const [formData, setFormData] = useState({
@@ -17,7 +18,6 @@ const CreatePost = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // Svi autentifikovani korisnici mogu kreirati blog
   if (!user) {
     return (
       <Container className="py-5">
@@ -36,12 +36,31 @@ const CreatePost = () => {
     }));
   };
 
+  // helper: upload jedne slike
+  const uploadSingleImage = async (file) => {
+    const formDataImage = new FormData();
+    formDataImage.append("image", file);
+
+    try {
+      const uploadRes = await blogApi.post("/uploads", formDataImage, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      // backend sada vraća FULL URL, npr:
+      // "http://localhost:8000/api/blog/uploads/..."
+      return uploadRes.data.url;
+    } catch (err) {
+      console.error("Upload error:", err);
+      setError("Greška pri upload-u slike");
+      return null;
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    // Validacija
     if (formData.title.length < 5) {
       setError("Naslov mora imati najmanje 5 karaktera.");
       setLoading(false);
@@ -81,9 +100,7 @@ const CreatePost = () => {
         return;
       }
 
-      // NE šaljemo ručno headers, blogApi interceptor već dodaje Authorization
       const res = await blogApi.post("/posts", payload);
-
       console.log("USPESNO!", res.data);
       navigate("/posts");
     } catch (err) {
@@ -108,14 +125,39 @@ const CreatePost = () => {
         <Col lg={10} xl={8}>
           <Card className="border-0 shadow-lg rounded-4">
             <Card.Body className="p-5">
-              <div className="text-center mb-5">
+              <div className="text-center mb-4">
                 <h2 className="fw-bold text-primary">✍️ Kreiraj novi blog post</h2>
-                <p className="text-muted">Dodaj naslov, opis, sadržaj i slike</p>
+                <p className="text-muted mb-1">
+                  Dodaj naslov, opis, sadržaj i slike
+                </p>
+                <small className="text-muted">
+                  🧩 <strong>Napomena:</strong> Opis i sadržaj podržavaju{" "}
+                  <code>Markdown</code> formatiranje (bold, naslovi, liste…)
+                </small>
               </div>
+
+              <Card className="mb-4 border-0 bg-light">
+                <Card.Body className="py-3">
+                  <h6 className="fw-bold mb-2">ℹ️ Kako da koristiš Markdown?</h6>
+                  <ul className="mb-2 small text-muted">
+                    <li><code>**tekst**</code> ➝ <strong>podebljano</strong></li>
+                    <li><code>*tekst*</code> ➝ <em>iskošeno</em></li>
+                    <li><code># Naslov 1</code>, <code>## Naslov 2</code> ➝ naslovi</li>
+                    <li><code>- stavka</code> ➝ lista</li>
+                    <li><code>[link](https://primer.com)</code> ➝ link</li>
+                    <li><code>---</code> ➝ horizontalna linija</li>
+                  </ul>
+                  <p className="small mb-0 text-muted">
+                    Sve što napišeš u polju za opis i sadržaj biće prikazano na sajtu
+                    sa ovim formatiranjem.
+                  </p>
+                </Card.Body>
+              </Card>
 
               {error && <Alert variant="danger">{error}</Alert>}
 
               <Form onSubmit={handleSubmit}>
+                {/* Naslov */}
                 <Form.Group className="mb-4">
                   <Form.Label className="fw-bold">📝 Naslov</Form.Label>
                   <Form.Control
@@ -129,6 +171,7 @@ const CreatePost = () => {
                   />
                 </Form.Group>
 
+                {/* Opis (Markdown) */}
                 <Form.Group className="mb-4">
                   <Form.Label className="fw-bold">📌 Kratak opis (Markdown)</Form.Label>
                   <Form.Control
@@ -137,12 +180,33 @@ const CreatePost = () => {
                     name="description"
                     value={formData.description}
                     onChange={handleChange}
-                    placeholder="Kratak opis, može **markdown**"
+                    placeholder="Kratak opis, može **podebljano**, *iskošeno* ili [link](https://...)"
                     required
                     maxLength={500}
                   />
+                  <Form.Text className="text-muted">
+                    Ovaj opis će se pojaviti kao uvod na stranici bloga.
+                  </Form.Text>
+
+                  <Card className="mt-2">
+                    <Card.Body className="py-2">
+                      <small className="text-muted d-block mb-1">
+                        🔍 Pregled opisa (Markdown)
+                      </small>
+                      <div className="small">
+                        {formData.description.trim() ? (
+                          <ReactMarkdown>{formData.description}</ReactMarkdown>
+                        ) : (
+                          <span className="text-muted">
+                            Ovde će se prikazati kako opis izgleda sa Markdown formatiranjem.
+                          </span>
+                        )}
+                      </div>
+                    </Card.Body>
+                  </Card>
                 </Form.Group>
 
+                {/* Sadržaj */}
                 <Form.Group className="mb-4">
                   <Form.Label className="fw-bold">📖 Sadržaj (Markdown)</Form.Label>
                   <Form.Control
@@ -151,23 +215,128 @@ const CreatePost = () => {
                     name="content"
                     value={formData.content}
                     onChange={handleChange}
-                    placeholder="# Dan 1\nPoseta Koloseumu..."
+                    placeholder={
+                      "# Dan 1\n" +
+                      "Dolazak u grad...\n\n" +
+                      "## Šta smo videli\n" +
+                      "- Muzej\n- Trg\n- Park\n\n" +
+                      "**Preporuka:** probajte lokalnu hranu!"
+                    }
                     required
                     maxLength={5000}
                   />
+                  <Form.Text className="text-muted">
+                    Ovde pišeš ceo blog post. Naslovi, liste, bold i linkovi se pišu u Markdown formatu.
+                  </Form.Text>
+
+                  <Card className="mt-3">
+                    <Card.Header className="py-2">
+                      <small className="fw-bold">👀 Pregled sadržaja (Markdown)</small>
+                    </Card.Header>
+                    <Card.Body style={{ maxHeight: "300px", overflowY: "auto" }}>
+                      {formData.content.trim() ? (
+                        <ReactMarkdown>{formData.content}</ReactMarkdown>
+                      ) : (
+                        <p className="text-muted mb-0 small">
+                          Kako budeš kucala tekst, ovde ćeš videti kako će izgledati na sajtu.
+                        </p>
+                      )}
+                    </Card.Body>
+                  </Card>
                 </Form.Group>
 
+                {/* Slike - Drag & Drop */}
                 <Form.Group className="mb-4">
-                  <Form.Label className="fw-bold">🖼️ Slike (URL – po jedna u redu)</Form.Label>
+                  <Form.Label className="fw-bold">🖼️ Slike (prevuci ili izaberi)</Form.Label>
+
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onDrop={async (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const file = e.dataTransfer.files[0];
+                      if (!file) return;
+
+                      const url = await uploadSingleImage(file);
+                      if (!url) return;
+
+                      setFormData((prev) => ({
+                        ...prev,
+                        imageUrls:
+                          prev.imageUrls + (prev.imageUrls ? "\n" : "") + url,
+                      }));
+                    }}
+                    onClick={() => {
+                      const input = document.createElement("input");
+                      input.type = "file";
+                      input.accept = "image/*";
+
+                      input.onchange = async (e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+
+                        const url = await uploadSingleImage(file);
+                        if (!url) return;
+
+                        setFormData((prev) => ({
+                          ...prev,
+                          imageUrls:
+                            prev.imageUrls + (prev.imageUrls ? "\n" : "") + url,
+                        }));
+                      };
+
+                      input.click();
+                    }}
+                    style={{
+                      border: "2px dashed #888",
+                      borderRadius: "10px",
+                      padding: "20px",
+                      textAlign: "center",
+                      cursor: "pointer",
+                      background: "#fafafa",
+                    }}
+                  >
+                    <p className="text-muted mb-0">
+                      Prevuci sliku ili klikni da izabereš sa računara
+                    </p>
+                  </div>
+
+                  {/* Preview uploadovanih slika */}
+                  {formData.imageUrls && (
+                    <div className="mt-3 d-flex flex-wrap gap-3">
+                      {formData.imageUrls.split("\n").map((url, i) => {
+                        const trimmed = url.trim();
+                        if (!trimmed) return null;
+
+                        return (
+                          <img
+                            key={i}
+                            src={trimmed} // backend već vratio full URL
+                            alt="preview"
+                            style={{
+                              width: "120px",
+                              height: "120px",
+                              objectFit: "cover",
+                              borderRadius: "10px",
+                              border: "1px solid #ddd",
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+
                   <Form.Control
                     as="textarea"
                     rows={3}
+                    className="mt-3"
                     name="imageUrls"
                     value={formData.imageUrls}
                     onChange={handleChange}
-                    placeholder={
-                      "https://example.com/slika1.jpg\nhttps://example.com/slika2.png"
-                    }
+                    placeholder="Linkovi slika će se automatski dodati ovde nakon upload-a"
                   />
                 </Form.Group>
 
