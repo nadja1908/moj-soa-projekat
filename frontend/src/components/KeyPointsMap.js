@@ -292,43 +292,60 @@ const KeyPointsMap = React.memo(({ show, onHide, tourId, tourName, onTourUpdate 
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <h6 className="mb-0">Ključne tačke ({keyPoints.length})</h6>
                 <div>
-                  <Button
-                    variant={isAddingMode ? "success" : "outline-primary"}
-                    size="sm"
-                    className="me-2"
-                    onClick={() => {
-                      console.log('🎯 Dodaj tačku clicked, current isAddingMode:', isAddingMode);
-                      setIsAddingMode(!isAddingMode);
-                      setIsEditMode(false);
+              <div className="d-flex gap-2 mb-3">
+                <Button
+                  variant={isAddingMode ? "success" : "outline-primary"}
+                  size="sm"
+                  onClick={() => {
+                    console.log('🎯 Dodaj tačku clicked, current isAddingMode:', isAddingMode);
+                    setIsAddingMode(!isAddingMode);
+                    setIsEditMode(false);
+                    setEditingKeyPoint(null);
+                    console.log('🎯 New isAddingMode will be:', !isAddingMode);
+                  }}
+                  title={isAddingMode ? 'Kliknite na mapu da dodate tačku' : 'Aktiviraj režim dodavanja'}
+                  style={{ minWidth: '100px' }}
+                >
+                  <i className={isAddingMode ? "fas fa-map-marker-alt me-1" : "fas fa-plus me-1"}></i>
+                  {isAddingMode ? 'Klik ovde' : 'Dodaj'}
+                </Button>
+                <Button
+                  variant={isEditMode ? "warning" : "outline-secondary"}
+                  size="sm"
+                  onClick={() => {
+                    console.log('✏️ Izmeni button clicked, current isEditMode:', isEditMode);
+                    setIsEditMode(!isEditMode);
+                    setIsAddingMode(false);
+                    if (!isEditMode) {
+                      console.log('✏️ Clearing editingKeyPoint');
                       setEditingKeyPoint(null);
-                      console.log('🎯 New isAddingMode will be:', !isAddingMode);
-                    }}
-                    title={isAddingMode ? 'Kliknite na mapu da dodate tačku' : 'Aktiviraj režim dodavanja'}
-                  >
-                    <i className={isAddingMode ? "fas fa-check me-1" : "fas fa-plus me-1"}></i>
-                    {isAddingMode ? 'Klik na mapu' : 'Dodaj tačku'}
-                  </Button>
-                  <Button
-                    variant={isEditMode ? "warning" : "outline-warning"}
-                    size="sm"
-                    onClick={() => {
-                      console.log('✏️ Izmeni button clicked, current isEditMode:', isEditMode);
-                      setIsEditMode(!isEditMode);
-                      setIsAddingMode(false);
-                      if (!isEditMode) {
-                        console.log('✏️ Clearing editingKeyPoint');
-                        setEditingKeyPoint(null);
-                      }
-                      console.log('✏️ New isEditMode will be:', !isEditMode);
-                    }}
-                    disabled={keyPoints.length === 0}
-                    title={isEditMode ? 'Otkaži izmenu' : 'Aktiviraj režim izmene'}
-                  >
-                    <i className={isEditMode ? "fas fa-times me-1" : "fas fa-pen me-1"}></i>
-                    {isEditMode ? 'Otkaži' : 'Izmeni'}
-                  </Button>
+                    }
+                    console.log('✏️ New isEditMode will be:', !isEditMode);
+                  }}
+                  disabled={keyPoints.length === 0}
+                  title={isEditMode ? 'Otkaži izmenu' : 'Aktiviraj režim izmene'}
+                  style={{ minWidth: '85px' }}
+                >
+                  <i className={isEditMode ? "fas fa-times me-1" : "fas fa-edit me-1"}></i>
+                  {isEditMode ? 'Otkaži' : 'Izmeni'}
+                </Button>
+              </div>
                 </div>
               </div>
+
+              {isEditMode && (
+                <Alert variant="info" className="mb-3" style={{ padding: '0.5rem', fontSize: '0.85rem' }}>
+                  <i className="fas fa-info-circle me-1"></i>
+                  Kliknite na bilo koju ključnu tačku na mapi da je pomerite
+                </Alert>
+              )}
+              
+              {isAddingMode && (
+                <Alert variant="success" className="mb-3" style={{ padding: '0.5rem', fontSize: '0.85rem' }}>
+                  <i className="fas fa-map-marker-alt me-1"></i>
+                  Kliknite na mapu da dodate novu ključnu tačku
+                </Alert>
+              )}
 
               {keyPoints.length === 0 ? (
                 <div className="text-center text-muted py-4">
@@ -353,11 +370,10 @@ const KeyPointsMap = React.memo(({ show, onHide, tourId, tourName, onTourUpdate 
                             📍 {point.latitude.toFixed(4)}, {point.longitude.toFixed(4)}
                           </small>
                         </div>
-                        <div>
+                        <div className="d-flex gap-2">
                           <Button
                             variant="outline-secondary"
                             size="sm"
-                            className="me-2"
                             onClick={() => {
                               console.log('📝 Edit button clicked for point:', point.id);
                               handleEditKeyPoint(point);
@@ -504,8 +520,8 @@ const KeyPointsMap = React.memo(({ show, onHide, tourId, tourName, onTourUpdate 
       </Modal.Body>
 
       <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>
-          <i className="fas fa-times me-2"></i>
+        <Button variant="secondary" size="sm" onClick={onHide}>
+          <i className="fas fa-times me-1"></i>
           Zatvori
         </Button>
       </Modal.Footer>
@@ -568,21 +584,24 @@ const KeyPointsMap = React.memo(({ show, onHide, tourId, tourName, onTourUpdate 
           </Modal.Body>
 
           <Modal.Footer>
+          <Modal.Footer>
             <Button 
               variant="secondary" 
+              size="sm"
               onClick={() => {
                 setShowAddForm(false);
                 setSelectedCoordinates(null);
                 setFormData({ name: '', description: '', image: null, imagePreview: '' });
               }}
             >
-              <i className="fas fa-times me-2"></i>
+              <i className="fas fa-times me-1"></i>
               Odustani
             </Button>
-            <Button type="submit" variant="primary" disabled={loading}>
-              <i className={loading ? "fas fa-spinner fa-spin me-2" : "fas fa-save me-2"}></i>
-              {loading ? 'Dodavanje...' : 'Dodaj ključnu tačku'}
+            <Button type="submit" variant="primary" size="sm" disabled={loading}>
+              <i className={loading ? "fas fa-spinner fa-spin me-1" : "fas fa-save me-1"}></i>
+              {loading ? 'Dodavanje...' : 'Dodaj'}
             </Button>
+          </Modal.Footer>
           </Modal.Footer>
         </Form>
       </Modal>
@@ -647,21 +666,24 @@ const KeyPointsMap = React.memo(({ show, onHide, tourId, tourName, onTourUpdate 
             </Modal.Body>
 
             <Modal.Footer>
+            <Modal.Footer>
               <Button 
                 variant="secondary" 
+                size="sm"
                 onClick={() => {
                   setShowEditForm(false);
                   setEditingKeyPoint(null);
                   setSelectedCoordinates(null);
                 }}
               >
-                <i className="fas fa-times me-2"></i>
+                <i className="fas fa-times me-1"></i>
                 Odustani
               </Button>
-              <Button type="submit" variant="warning" disabled={loading}>
-                <i className={loading ? "fas fa-spinner fa-spin me-2" : "fas fa-save me-2"}></i>
-                {loading ? 'Ažuriranje...' : 'Sačuvaj izmene'}
+              <Button type="submit" variant="warning" size="sm" disabled={loading}>
+                <i className={loading ? "fas fa-spinner fa-spin me-1" : "fas fa-save me-1"}></i>
+                {loading ? 'Ažuriranje...' : 'Sačuvaj'}
               </Button>
+            </Modal.Footer>
             </Modal.Footer>
           </Form>
         )}

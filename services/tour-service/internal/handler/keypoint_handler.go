@@ -57,22 +57,33 @@ func (h *KeyPointHandler) updateTourPrice(tourID int64) error {
 
 // CreateKeyPoint kreira novu ključnu tačku
 func (h *KeyPointHandler) CreateKeyPoint(c *gin.Context) {
+	log.Printf("DEBUG: CreateKeyPoint handler called!")
+
 	userID := getUserIDFromContext(c)
 	if userID == 0 {
+		log.Printf("DEBUG: CreateKeyPoint - User not authenticated")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
 
+	log.Printf("DEBUG: CreateKeyPoint - User authenticated, ID: %d", userID)
+
 	// Parse multipart form
 	err := c.Request.ParseMultipartForm(32 << 20) // 32MB max
 	if err != nil {
+		log.Printf("ERROR: CreateKeyPoint - ParseMultipartForm failed: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid multipart form"})
 		return
 	}
 
+	// Log all form fields for debugging
+	log.Printf("DEBUG: CreateKeyPoint - All form fields: %+v", c.Request.Form)
+	log.Printf("DEBUG: CreateKeyPoint - PostForm tourId: '%s'", c.PostForm("tourId"))
+
 	// Extract form fields
 	tourID, err := strconv.ParseInt(c.PostForm("tourId"), 10, 64)
 	if err != nil {
+		log.Printf("ERROR: CreateKeyPoint - Invalid tourId: '%s', error: %v", c.PostForm("tourId"), err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tour ID"})
 		return
 	}
@@ -169,6 +180,13 @@ func (h *KeyPointHandler) CreateKeyPoint(c *gin.Context) {
 	if err != nil {
 		log.Printf("Warning: Failed to update tour price: %v", err)
 		// Ne prekidamo operaciju zbog greške u ažuriranju cene
+	}
+
+	// Ažuriraj rastojanje i vremena ture na osnovu novih ključnih tačaka
+	err = h.store.UpdateTourDistance(req.TourID)
+	if err != nil {
+		log.Printf("Warning: Failed to update tour distance and durations: %v", err)
+		// Ne prekidamo operaciju zbog greške u ažuriranju distance
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
@@ -283,6 +301,12 @@ func (h *KeyPointHandler) UpdateKeyPoint(c *gin.Context) {
 		return
 	}
 
+	// Ažuriraj rastojanje i vremena ture nakon ažuriranja ključne tačke
+	err = h.store.UpdateTourDistance(keyPoint.TourID)
+	if err != nil {
+		log.Printf("Warning: Failed to update tour distance and durations after keypoint update: %v", err)
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success":  true,
 		"keyPoint": updatedKeyPoint,
@@ -340,6 +364,13 @@ func (h *KeyPointHandler) DeleteKeyPoint(c *gin.Context) {
 		// Ne prekidamo operaciju zbog greške u ažuriranju cene
 	}
 
+	// Ažuriraj rastojanje i vremena ture na osnovu preostalih ključnih tačaka
+	err = h.store.UpdateTourDistance(keyPoint.TourID)
+	if err != nil {
+		log.Printf("Warning: Failed to update tour distance and durations after deletion: %v", err)
+		// Ne prekidamo operaciju zbog greške u ažuriranju distance
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Key point deleted successfully",
@@ -390,6 +421,13 @@ func (h *KeyPointHandler) ReorderKeyPoints(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reorder key points"})
 		return
+	}
+
+	// Ažuriraj rastojanje i vremena ture nakon promena redosleda
+	err = h.store.UpdateTourDistance(tourID)
+	if err != nil {
+		log.Printf("Warning: Failed to update tour distance and durations after reorder: %v", err)
+		// Ne prekidamo operaciju zbog greške u ažuriranju distance
 	}
 
 	c.JSON(http.StatusOK, gin.H{

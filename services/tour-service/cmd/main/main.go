@@ -86,7 +86,7 @@ func main() {
 
 	// Public rute (bez autentifikacije) - tours
 	r.GET("/api/tours/published", tourHandler.GetPublishedTours)
-	r.GET("/api/tours/public/:id", tourHandler.GetTour) // Changed to avoid conflict with protected routes
+	r.GET("/api/tours/public/:id", tourHandler.GetTourForTourist) // For tourists - only first key point
 
 	// Public rute - key points i durations (koristim drugačiji path)
 	r.GET("/api/keypoints/tour/:tourId", keyPointHandler.GetTourKeyPoints)

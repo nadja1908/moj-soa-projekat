@@ -1,7 +1,7 @@
 package model
 
 import (
-	"database/sql"
+	"encoding/json"
 	"time"
 )
 
@@ -27,9 +27,10 @@ const (
 type TransportType string
 
 const (
-	TransportWalk    TransportType = "walk"
-	TransportBicycle TransportType = "bicycle"
-	TransportCar     TransportType = "car"
+	TransportWalking TransportType = "WALKING"
+	TransportCycling TransportType = "CYCLING"
+	TransportCar     TransportType = "CAR"
+	TransportBus     TransportType = "BUS"
 )
 
 // Tour predstavlja turu
@@ -47,6 +48,37 @@ type Tour struct {
 	ArchivedAt  *time.Time     `json:"archivedAt" db:"archived_at"`
 	CreatedAt   time.Time      `json:"createdAt" db:"created_at"`
 	UpdatedAt   time.Time      `json:"updatedAt" db:"updated_at"`
+}
+
+// Custom JSON marshaling za Tour
+func (t Tour) MarshalJSON() ([]byte, error) {
+	type Alias Tour
+
+	aux := &struct {
+		PublishedAt *string `json:"publishedAt"`
+		ArchivedAt  *string `json:"archivedAt"`
+		*Alias
+	}{
+		Alias: (*Alias)(&t),
+	}
+
+	// Konvertujem publishedAt u ISO 8601 string ili null
+	if t.PublishedAt != nil && !t.PublishedAt.IsZero() {
+		publishedStr := t.PublishedAt.Format(time.RFC3339)
+		aux.PublishedAt = &publishedStr
+	} else {
+		aux.PublishedAt = nil
+	}
+
+	// Konvertujem archivedAt u ISO 8601 string ili null
+	if t.ArchivedAt != nil && !t.ArchivedAt.IsZero() {
+		archivedStr := t.ArchivedAt.Format(time.RFC3339)
+		aux.ArchivedAt = &archivedStr
+	} else {
+		aux.ArchivedAt = nil
+	}
+
+	return json.Marshal(aux)
 }
 
 // KeyPoint predstavlja ključnu tačku ture
@@ -100,7 +132,7 @@ type TourListItem struct {
 	Status        TourStatus     `json:"status"`
 	Price         float64        `json:"price"`
 	DistanceKm    float64        `json:"distanceKm"`
-	PublishedAt   sql.NullTime   `json:"publishedAt"`
+	PublishedAt   *string        `json:"publishedAt"`
 	CreatedAt     time.Time      `json:"createdAt"`
 	FirstKeyPoint *KeyPoint      `json:"firstKeyPoint"`
 }

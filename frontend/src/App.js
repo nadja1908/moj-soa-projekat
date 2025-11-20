@@ -5,6 +5,7 @@ import Login from './components/Login';
 import Register from './components/Register';
 import AdminPanel from './components/AdminPanel';
 import TourManagement from './components/TourManagement';
+import TouristTours from './components/TouristTours';
 import BlogPosts from './components/BlogPosts';
 import CreatePost from './components/CreatePost';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -57,7 +58,7 @@ function AppContent() {
           {/* Tourist rute */}
           <Route 
             path="/tours" 
-            element={user && user.role === 'tourist' ? <div>Tourist Tours View (TODO)</div> : <Navigate to="/login" />} 
+            element={user && user.role === 'tourist' ? <TouristTours /> : <Navigate to="/login" />} 
           />
           
           {/* Blog rute - dostupne svim korisnicima */}

@@ -112,6 +112,36 @@ func (h *TourHandler) GetPublishedTours(c *gin.Context) {
 	})
 }
 
+// GetTourForTourist vraća objavljenu turu za turiste (sa samo prvom ključnom tačkom)
+func (h *TourHandler) GetTourForTourist(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tour ID"})
+		return
+	}
+
+	log.Printf("DEBUG: GetTourForTourist called for tour ID: %d", id)
+
+	tour, err := h.store.GetTourForTourist(id)
+	if err != nil {
+		log.Printf("DEBUG: GetTourForTourist error: %v", err)
+		if err.Error() == "published tour not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Tour not found or not published"})
+		} else {
+			log.Printf("Error getting tour for tourist: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get tour"})
+		}
+		return
+	}
+
+	log.Printf("DEBUG: GetTourForTourist success: %+v", tour)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"tour":    tour,
+	})
+}
+
 // UpdateTour ažurira turu
 func (h *TourHandler) UpdateTour(c *gin.Context) {
 	userID := getUserIDFromContext(c)

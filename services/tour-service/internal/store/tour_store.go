@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"time"
 
 	"tour-service/internal/model"
 )
@@ -67,7 +68,7 @@ func (s *Store) GetTourByID(id int64) (*model.Tour, error) {
 func (s *Store) GetToursByAuthor(authorID int64) ([]model.TourListItem, error) {
 	query := `
 		SELECT t.id, t.name, t.description, t.difficulty_level, t.status, t.price,
-		       t.distance_km, t.published_at, t.tags, t.created_at
+		       t.distance_km, DATE_FORMAT(t.published_at, '%Y-%m-%d %H:%i:%s') as published_at, t.tags, t.created_at
 		FROM tours t
 		WHERE t.author_id = ?
 		ORDER BY t.created_at DESC
@@ -83,14 +84,27 @@ func (s *Store) GetToursByAuthor(authorID int64) ([]model.TourListItem, error) {
 	for rows.Next() {
 		tour := model.TourListItem{}
 		var tagsJSON sql.NullString
+		var publishedAtStr sql.NullString
 
 		err := rows.Scan(
 			&tour.ID, &tour.Name, &tour.Description, &tour.Difficulty,
-			&tour.Status, &tour.Price, &tour.DistanceKm, &tour.PublishedAt,
+			&tour.Status, &tour.Price, &tour.DistanceKm, &publishedAtStr,
 			&tagsJSON, &tour.CreatedAt,
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		// Convert sql.NullString datetime to *string (samo datum)
+		if publishedAtStr.Valid && publishedAtStr.String != "" {
+			if parsedTime, err := time.Parse("2006-01-02 15:04:05", publishedAtStr.String); err == nil {
+				dateOnly := parsedTime.Format("2006-01-02") // Samo datum do 'T'
+				tour.PublishedAt = &dateOnly
+			} else {
+				tour.PublishedAt = nil
+			}
+		} else {
+			tour.PublishedAt = nil
 		}
 
 		// Parse tags JSON
@@ -100,7 +114,7 @@ func (s *Store) GetToursByAuthor(authorID int64) ([]model.TourListItem, error) {
 			tour.Tags = "[]"
 		}
 
-		// Dodaj prvu ključnu tačku ako postoji
+		// Dodaj samo prvu ključnu tačku (ostale se ne pokazuju turistima)
 		// firstKeyPoint, _ := s.GetFirstKeyPoint(tour.ID)
 		// tour.FirstKeyPoint = firstKeyPoint
 		tour.FirstKeyPoint = nil // Temporarily disabled
@@ -115,7 +129,7 @@ func (s *Store) GetToursByAuthor(authorID int64) ([]model.TourListItem, error) {
 func (s *Store) GetPublishedTours() ([]model.TourListItem, error) {
 	query := `
 		SELECT t.id, t.name, t.description, t.difficulty_level, t.status, t.price,
-		       t.distance_km, t.published_at, t.tags, t.created_at
+		       t.distance_km, DATE_FORMAT(t.published_at, '%Y-%m-%d %H:%i:%s') as published_at, t.tags, t.created_at
 		FROM tours t
 		WHERE t.status = 'PUBLISHED'
 		ORDER BY t.published_at DESC
@@ -131,14 +145,27 @@ func (s *Store) GetPublishedTours() ([]model.TourListItem, error) {
 	for rows.Next() {
 		tour := model.TourListItem{}
 		var tagsJSON sql.NullString
+		var publishedAtStr sql.NullString
 
 		err := rows.Scan(
 			&tour.ID, &tour.Name, &tour.Description, &tour.Difficulty,
-			&tour.Status, &tour.Price, &tour.DistanceKm, &tour.PublishedAt,
+			&tour.Status, &tour.Price, &tour.DistanceKm, &publishedAtStr,
 			&tagsJSON, &tour.CreatedAt,
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		// Convert sql.NullString datetime to *string (samo datum)
+		if publishedAtStr.Valid && publishedAtStr.String != "" {
+			if parsedTime, err := time.Parse("2006-01-02 15:04:05", publishedAtStr.String); err == nil {
+				dateOnly := parsedTime.Format("2006-01-02") // Samo datum do 'T'
+				tour.PublishedAt = &dateOnly
+			} else {
+				tour.PublishedAt = nil
+			}
+		} else {
+			tour.PublishedAt = nil
 		}
 
 		// Parse tags JSON
@@ -149,9 +176,8 @@ func (s *Store) GetPublishedTours() ([]model.TourListItem, error) {
 		}
 
 		// Dodaj samo prvu ključnu tačku (ostale se ne pokazuju turistima)
-		// firstKeyPoint, _ := s.GetFirstKeyPoint(tour.ID)
-		// tour.FirstKeyPoint = firstKeyPoint
-		tour.FirstKeyPoint = nil // Temporarily disabled
+		firstKeyPoint, _ := s.GetFirstKeyPoint(tour.ID)
+		tour.FirstKeyPoint = firstKeyPoint
 
 		tours = append(tours, tour)
 	}
@@ -238,7 +264,7 @@ func (s *Store) PublishTour(id int64, price float64) error {
 
 	query := `
 		UPDATE tours 
-		SET status = 'published', price = ?, published_at = NOW(), updated_at = NOW()
+		SET status = 'PUBLISHED', price = ?, published_at = NOW(), updated_at = NOW()
 		WHERE id = ?
 	`
 
@@ -250,8 +276,8 @@ func (s *Store) PublishTour(id int64, price float64) error {
 func (s *Store) ArchiveTour(id int64) error {
 	query := `
 		UPDATE tours 
-		SET status = 'archived', archived_at = NOW(), updated_at = NOW()
-		WHERE id = ? AND status = 'published'
+		SET status = 'ARCHIVED', archived_at = NOW(), updated_at = NOW()
+		WHERE id = ? AND status = 'PUBLISHED'
 	`
 
 	result, err := s.db.Exec(query, id)
@@ -275,8 +301,8 @@ func (s *Store) ArchiveTour(id int64) error {
 func (s *Store) ReactivateTour(id int64) error {
 	query := `
 		UPDATE tours 
-		SET status = 'published', archived_at = NULL, updated_at = NOW()
-		WHERE id = ? AND status = 'archived'
+		SET status = 'PUBLISHED', archived_at = NULL, updated_at = NOW()
+		WHERE id = ? AND status = 'ARCHIVED'
 	`
 
 	result, err := s.db.Exec(query, id)
@@ -363,6 +389,63 @@ func (s *Store) GetFirstKeyPoint(tourID int64) (*model.KeyPoint, error) {
 	return keyPoint, nil
 }
 
+// GetTourForTourist vraća objavljenu turu sa osnovnim podacima i samo prvom ključnom tačkom
+func (s *Store) GetTourForTourist(id int64) (*model.TourWithDetails, error) {
+	// Prvo proveri da li je tura objavljena
+	query := `
+		SELECT id, name, description, difficulty_level, tags, status, price, author_id,
+		       distance_km, published_at, archived_at, created_at, updated_at
+		FROM tours WHERE id = ? AND status = 'PUBLISHED'
+	`
+
+	row := s.db.QueryRow(query, id)
+	tour := &model.Tour{}
+	var tagsJSON sql.NullString
+
+	err := row.Scan(
+		&tour.ID, &tour.Name, &tour.Description, &tour.Difficulty, &tagsJSON,
+		&tour.Status, &tour.Price, &tour.AuthorID, &tour.DistanceKm,
+		&tour.PublishedAt, &tour.ArchivedAt, &tour.CreatedAt, &tour.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("published tour not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse tags
+	if tagsJSON.Valid {
+		tour.Tags = tagsJSON.String
+	}
+
+	// Dobij samo prvu ključnu tačku
+	firstKeyPoint, err := s.GetFirstKeyPoint(id)
+	var keyPoints []model.KeyPoint
+	if err == nil && firstKeyPoint != nil {
+		keyPoints = []model.KeyPoint{*firstKeyPoint}
+		fmt.Printf("DEBUG: GetTourForTourist - Found first key point: %+v\n", *firstKeyPoint)
+	} else {
+		fmt.Printf("DEBUG: GetTourForTourist - No first key point found, err: %v\n", err)
+	}
+
+	// Dobij durations
+	durations, err := s.GetTourDurations(id)
+	if err != nil {
+		fmt.Printf("DEBUG: GetTourForTourist - Error getting durations: %v\n", err)
+		durations = []model.TourDuration{}
+	} else {
+		fmt.Printf("DEBUG: GetTourForTourist - Found %d durations\n", len(durations))
+	}
+
+	return &model.TourWithDetails{
+		Tour:      *tour,
+		KeyPoints: keyPoints,
+		Durations: durations,
+	}, nil
+}
+
 // CalculateDistance računa udaljenost između dve geografske tačke u kilometrima
 func CalculateDistance(lat1, lon1, lat2, lon2 float64) float64 {
 	const earthRadius = 6371.0 // km
@@ -402,5 +485,75 @@ func (s *Store) UpdateTourDistance(tourID int64) error {
 
 	query := "UPDATE tours SET distance_km = ?, updated_at = NOW() WHERE id = ?"
 	_, err = s.db.Exec(query, totalDistance, tourID)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Calculate automatic durations based on the distance
+	return s.CalculateAutomaticDurations(uint(tourID), totalDistance)
+}
+
+func (s *Store) CalculateAutomaticDurations(tourID uint, distanceKm float64) error {
+	// Delete existing durations for this tour
+	deleteQuery := "DELETE FROM tour_durations WHERE tour_id = ?"
+	_, err := s.db.Exec(deleteQuery, tourID)
+	if err != nil {
+		return err
+	}
+
+	// Calculate durations based on distance
+	if distanceKm < 2.0 {
+		// Less than 2km: walking only (5 km/h)
+		walkingDuration := int(math.Ceil((distanceKm / 5.0) * 60)) // minutes
+		insertQuery := "INSERT INTO tour_durations (tour_id, transport_type, duration_minutes, created_at) VALUES (?, ?, ?, NOW())"
+		_, err = s.db.Exec(insertQuery, tourID, "WALKING", walkingDuration)
+		if err != nil {
+			return err
+		}
+	} else if distanceKm <= 5.0 {
+		// 2-5km: walking and cycling
+		walkingDuration := int(math.Ceil((distanceKm / 5.0) * 60))  // 5 km/h
+		cyclingDuration := int(math.Ceil((distanceKm / 15.0) * 60)) // 15 km/h
+
+		insertQuery := "INSERT INTO tour_durations (tour_id, transport_type, duration_minutes, created_at) VALUES (?, ?, ?, NOW())"
+
+		// Insert walking duration
+		_, err = s.db.Exec(insertQuery, tourID, "WALKING", walkingDuration)
+		if err != nil {
+			return err
+		}
+
+		// Insert cycling duration
+		_, err = s.db.Exec(insertQuery, tourID, "CYCLING", cyclingDuration)
+		if err != nil {
+			return err
+		}
+	} else {
+		// More than 5km: walking, cycling, and bus
+		walkingDuration := int(math.Ceil((distanceKm / 5.0) * 60))  // 5 km/h
+		cyclingDuration := int(math.Ceil((distanceKm / 15.0) * 60)) // 15 km/h
+		busDuration := int(math.Ceil((distanceKm / 30.0) * 60))     // 30 km/h
+
+		insertQuery := "INSERT INTO tour_durations (tour_id, transport_type, duration_minutes, created_at) VALUES (?, ?, ?, NOW())"
+
+		// Insert walking duration
+		_, err = s.db.Exec(insertQuery, tourID, "WALKING", walkingDuration)
+		if err != nil {
+			return err
+		}
+
+		// Insert cycling duration
+		_, err = s.db.Exec(insertQuery, tourID, "CYCLING", cyclingDuration)
+		if err != nil {
+			return err
+		}
+
+		// Insert bus duration
+		_, err = s.db.Exec(insertQuery, tourID, "BUS", busDuration)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
