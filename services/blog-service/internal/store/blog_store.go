@@ -45,11 +45,25 @@ func (s *Store) GetAllBlogPosts() ([]model.BlogPost, error) {
 	var posts []model.BlogPost
 	for rows.Next() {
 		var post model.BlogPost
-		err := rows.Scan(&post.ID, &post.UserID, &post.Title, &post.Description,
-			&post.Content, &post.CreatedAt, &post.UpdatedAt, &post.LikesCount)
+		err := rows.Scan(
+			&post.ID,
+			&post.UserID,
+			&post.Title,
+			&post.Description,
+			&post.Content,
+			&post.CreatedAt,
+			&post.UpdatedAt,
+			&post.LikesCount,
+		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan blog post: %w", err)
 		}
+
+		//  DODATO: dohvati slike za svaki post
+		if images, err := s.GetImagesByBlogID(post.ID); err == nil {
+			post.Images = images
+		}
+
 		posts = append(posts, post)
 	}
 
@@ -68,14 +82,27 @@ func (s *Store) GetBlogPostByID(id int64) (*model.BlogPost, error) {
 
 	var post model.BlogPost
 	row := s.db.QueryRow(query, id)
-	err := row.Scan(&post.ID, &post.UserID, &post.Title, &post.Description,
-		&post.Content, &post.CreatedAt, &post.UpdatedAt, &post.LikesCount)
+	err := row.Scan(
+		&post.ID,
+		&post.UserID,
+		&post.Title,
+		&post.Description,
+		&post.Content,
+		&post.CreatedAt,
+		&post.UpdatedAt,
+		&post.LikesCount,
+	)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get blog post: %w", err)
+	}
+
+	//  DODATO: slike i za jedan konkretan post
+	if images, err := s.GetImagesByBlogID(post.ID); err == nil {
+		post.Images = images
 	}
 
 	return &post, nil
@@ -116,8 +143,14 @@ func (s *Store) GetCommentsByBlogID(blogID int64) ([]model.BlogComment, error) {
 	var comments []model.BlogComment
 	for rows.Next() {
 		var comment model.BlogComment
-		err := rows.Scan(&comment.ID, &comment.BlogID, &comment.UserID,
-			&comment.CommentText, &comment.CreatedAt, &comment.UpdatedAt)
+		err := rows.Scan(
+			&comment.ID,
+			&comment.BlogID,
+			&comment.UserID,
+			&comment.CommentText,
+			&comment.CreatedAt,
+			&comment.UpdatedAt,
+		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan comment: %w", err)
 		}
@@ -183,14 +216,16 @@ func (s *Store) GetImagesByBlogID(blogID int64) ([]model.BlogImage, error) {
 		blogID,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get images: %w", err)
 	}
 	defer rows.Close()
 
 	var images []model.BlogImage
 	for rows.Next() {
 		var img model.BlogImage
-		rows.Scan(&img.ID, &img.BlogID, &img.ImageURL, &img.CreatedAt)
+		if err := rows.Scan(&img.ID, &img.BlogID, &img.ImageURL, &img.CreatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan image: %w", err)
+		}
 		images = append(images, img)
 	}
 	return images, nil

@@ -56,6 +56,23 @@ const CreatePost = () => {
     }
   };
 
+  // uklanjanje pojedinačne slike iz liste
+  const handleRemoveImage = (indexToRemove) => {
+    setFormData((prev) => {
+      const urls = prev.imageUrls
+        .split("\n")
+        .map((u) => u.trim())
+        .filter((u) => u !== "");
+
+      const filtered = urls.filter((_, idx) => idx !== indexToRemove);
+
+      return {
+        ...prev,
+        imageUrls: filtered.join("\n"),
+      };
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -304,7 +321,7 @@ const CreatePost = () => {
                     </p>
                   </div>
 
-                  {/* Preview uploadovanih slika */}
+                  {/* Preview uploadovanih slika sa X za brisanje */}
                   {formData.imageUrls && (
                     <div className="mt-3 d-flex flex-wrap gap-3">
                       {formData.imageUrls.split("\n").map((url, i) => {
@@ -312,18 +329,48 @@ const CreatePost = () => {
                         if (!trimmed) return null;
 
                         return (
-                          <img
+                          <div
                             key={i}
-                            src={trimmed} // backend već vratio full URL
-                            alt="preview"
                             style={{
+                              position: "relative",
                               width: "120px",
                               height: "120px",
-                              objectFit: "cover",
-                              borderRadius: "10px",
-                              border: "1px solid #ddd",
                             }}
-                          />
+                          >
+                            <img
+                              src={trimmed} // backend već vratio full URL
+                              alt="preview"
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                                borderRadius: "10px",
+                                border: "1px solid #ddd",
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveImage(i)}
+                              style={{
+                                position: "absolute",
+                                top: "4px",
+                                right: "4px",
+                                borderRadius: "50%",
+                                border: "none",
+                                width: "24px",
+                                height: "24px",
+                                fontSize: "14px",
+                                lineHeight: "24px",
+                                textAlign: "center",
+                                background: "rgba(0,0,0,0.6)",
+                                color: "#fff",
+                                cursor: "pointer",
+                              }}
+                              title="Ukloni ovu sliku"
+                            >
+                              ×
+                            </button>
+                          </div>
                         );
                       })}
                     </div>
