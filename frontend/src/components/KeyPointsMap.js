@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Modal, Button, Form, Alert, Card, Badge, ListGroup } from 'react-bootstrap';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { tourApi, keypointsApi } from '../services/api';
 import 'leaflet/dist/leaflet.css';
@@ -14,23 +14,32 @@ L.Icon.Default.mergeOptions({
 });
 
 // Komponenta za hvatanje klikova na mapu
-const MapClickHandler = ({ onMapClick, isAddingMode }) => {
+const MapClickHandler = ({ onMapClick, isAddingMode, isEditMode }) => {
   useMapEvents({
     click: (e) => {
-      if (isAddingMode) {
+      console.log('🗺️ MapClickHandler received click:', { isAddingMode, isEditMode });
+      if (isAddingMode || isEditMode) {
+        console.log('🎯 Calling onMapClick with:', e.latlng);
         onMapClick(e.latlng);
+      } else {
+        console.log('❌ Click ignored - neither adding nor editing mode');
       }
     },
   });
   return null;
 };
 
-const KeyPointsMap = ({ show, onHide, tourId, tourName }) => {
+const KeyPointsMap = React.memo(({ show, onHide, tourId, tourName, onTourUpdate }) => {
+  console.log('🗺️ KeyPointsMap RENDER:', { show, tourId, tourName, onTourUpdate: !!onTourUpdate });
+  
   const [keyPoints, setKeyPoints] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isAddingMode, setIsAddingMode] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingKeyPoint, setEditingKeyPoint] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
   const [selectedCoordinates, setSelectedCoordinates] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -43,33 +52,86 @@ const KeyPointsMap = ({ show, onHide, tourId, tourName }) => {
   const [mapCenter] = useState([44.8176, 20.4633]);
   const mapRef = useRef();
 
-  console.log('KeyPointsMap render - keyPoints:', keyPoints, 'type:', typeof keyPoints, 'isArray:', Array.isArray(keyPoints));
+  // Stabiliziraj tour podatke da sprečiš nepotrebne re-render-e
+  // Debug logging za state promene
+  useEffect(() => {
+    console.log('🎯 isAddingMode changed to:', isAddingMode);
+  }, [isAddingMode]);
 
   useEffect(() => {
-    if (show && tourId) {
-      fetchKeyPoints();
-    }
-  }, [show, tourId]);
+    console.log('✏️ isEditMode changed to:', isEditMode);
+  }, [isEditMode]);
 
-  const fetchKeyPoints = async () => {
+  useEffect(() => {
+    console.log('📍 showAddForm changed to:', showAddForm);
+  }, [showAddForm]);
+
+  useEffect(() => {
+    console.log('📝 editingKeyPoint changed to:', editingKeyPoint);
+  }, [editingKeyPoint]);
+
+  const tourData = useMemo(() => {
+    console.log('🔄 tourData useMemo:', { id: tourId, name: tourName });
+    return { id: tourId, name: tourName };
+  }, [tourId, tourName]);
+
+  // Debugging lifecycle
+  useEffect(() => {
+    console.log('🟢 KeyPointsMap MOUNTED/UPDATED:', { show, tourData });
+    return () => {
+      console.log('🔴 KeyPointsMap UNMOUNTING');
+    };
+  }, [show, tourData]);
+
+  console.log('KeyPointsMap render - keyPoints:', keyPoints, 'type:', typeof keyPoints, 'isArray:', Array.isArray(keyPoints));
+
+  const fetchKeyPoints = useCallback(async () => {
+    console.log('📡 fetchKeyPoints CALLED for tour:', tourData.id);
     try {
       setLoading(true);
       setError('');
-      const response = await keypointsApi.get(`/tour/${tourId}`);
-      console.log('KeyPoints API response:', response.data);
+      const response = await keypointsApi.get(`/tour/${tourData.id}`);
+      console.log('✅ KeyPoints API response:', response.data);
       setKeyPoints(response.data.keyPoints || []);
+      console.log('✅ KeyPoints fetched successfully - backend automatically calculates price');
     } catch (err) {
-      console.error('Error fetching key points:', err);
+      console.error('❌ Error fetching key points:', err);
       setError('Greška pri učitavanju ključnih tačaka');
     } finally {
       setLoading(false);
     }
-  };
+  }, [tourData.id]);
+
+  useEffect(() => {
+    if (show && tourData.id) {
+      fetchKeyPoints();
+    }
+  }, [show, tourData.id, fetchKeyPoints]);
 
   const handleMapClick = (latlng) => {
-    setSelectedCoordinates(latlng);
-    setShowAddForm(true);
-    setIsAddingMode(false);
+    console.log('🗺️ Map clicked at:', latlng, 'isAddingMode:', isAddingMode, 'isEditMode:', isEditMode, 'showEditForm:', showEditForm);
+    
+    if (isAddingMode) {
+      console.log('➕ Adding new keypoint at:', latlng);
+      setSelectedCoordinates(latlng);
+      setShowAddForm(true);
+      setIsAddingMode(false);
+    } else if (isEditMode && editingKeyPoint) {
+      console.log('✏️ Moving keypoint to new position:', latlng);
+      // Update position of editing keypoint
+      setEditingKeyPoint({
+        ...editingKeyPoint,
+        latitude: latlng.lat,
+        longitude: latlng.lng
+      });
+      setSelectedCoordinates(latlng);
+      // Otvori edit modal TEK SADA
+      setShowEditForm(true);
+      setIsEditMode(false);
+      console.log('✏️ Position updated, opening edit modal');
+    } else {
+      console.log('❌ Map click ignored - not in adding or edit mode');
+    }
   };
 
   const handleAddKeyPoint = async (e) => {
@@ -81,7 +143,7 @@ const KeyPointsMap = ({ show, onHide, tourId, tourName }) => {
       
       // Kreiraj FormData objekat
       const formDataToSend = new FormData();
-      formDataToSend.append('tourId', tourId);
+      formDataToSend.append('tourId', tourData.id);
       formDataToSend.append('name', formData.name);
       formDataToSend.append('description', formData.description);
       formDataToSend.append('latitude', selectedCoordinates.lat);
@@ -131,6 +193,65 @@ const KeyPointsMap = ({ show, onHide, tourId, tourName }) => {
     }
   };
 
+  const handleEditKeyPoint = (keyPoint) => {
+    console.log('✏️ handleEditKeyPoint called with:', keyPoint);
+    setEditingKeyPoint(keyPoint);
+    setIsEditMode(true);
+    setIsAddingMode(false);
+    setShowEditForm(false); // Zatvori modal ako je otvoren
+    console.log('✏️ Edit mode activated - click on map to move keypoint:', keyPoint.id);
+  };
+
+  const handleUpdateKeyPoint = async (e) => {
+    e.preventDefault();
+    if (!editingKeyPoint) return;
+
+    try {
+      setLoading(true);
+      
+      // Koristi selectedCoordinates ako su postavljene, inače originalne koordinate
+      const finalLatitude = selectedCoordinates ? selectedCoordinates.lat : editingKeyPoint.latitude;
+      const finalLongitude = selectedCoordinates ? selectedCoordinates.lng : editingKeyPoint.longitude;
+      
+      const updateData = {
+        name: editingKeyPoint.name,
+        description: editingKeyPoint.description,
+        latitude: finalLatitude,
+        longitude: finalLongitude,
+      };
+
+      console.log('✏️ Updating keypoint:', editingKeyPoint.id);
+      console.log('✏️ Original coordinates:', { lat: editingKeyPoint.latitude, lng: editingKeyPoint.longitude });
+      console.log('✏️ Selected coordinates:', selectedCoordinates);
+      console.log('✏️ Final update data:', updateData);
+      
+      const response = await keypointsApi.put(`/${editingKeyPoint.id}`, updateData);
+      console.log('✅ Update response:', response);
+      
+      // Reset form and state
+      setEditingKeyPoint(null);
+      setSelectedCoordinates(null);
+      setShowEditForm(false);
+      setIsEditMode(false);
+      
+      // Refresh key points
+      await fetchKeyPoints();
+    } catch (err) {
+      console.error('❌ Error updating key point:', err);
+      console.error('❌ Error details:', err.response?.data);
+      setError(err.response?.data?.error || err.message || 'Greška pri ažuriranju ključne tačke');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditFormChange = (e) => {
+    setEditingKeyPoint({
+      ...editingKeyPoint,
+      [e.target.name]: e.target.value
+    });
+  };
+
   const handleFormChange = (e) => {
     setFormData({
       ...formData,
@@ -170,13 +291,43 @@ const KeyPointsMap = ({ show, onHide, tourId, tourName }) => {
             <div className="p-3">
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <h6 className="mb-0">Ključne tačke ({keyPoints.length})</h6>
-                <Button
-                  variant={isAddingMode ? "success" : "outline-primary"}
-                  size="sm"
-                  onClick={() => setIsAddingMode(!isAddingMode)}
-                >
-                  {isAddingMode ? '✓ Klik na mapu' : '+ Dodaj tačku'}
-                </Button>
+                <div>
+                  <Button
+                    variant={isAddingMode ? "success" : "outline-primary"}
+                    size="sm"
+                    className="me-2"
+                    onClick={() => {
+                      console.log('🎯 Dodaj tačku clicked, current isAddingMode:', isAddingMode);
+                      setIsAddingMode(!isAddingMode);
+                      setIsEditMode(false);
+                      setEditingKeyPoint(null);
+                      console.log('🎯 New isAddingMode will be:', !isAddingMode);
+                    }}
+                    title={isAddingMode ? 'Kliknite na mapu da dodate tačku' : 'Aktiviraj režim dodavanja'}
+                  >
+                    <i className={isAddingMode ? "fas fa-check me-1" : "fas fa-plus me-1"}></i>
+                    {isAddingMode ? 'Klik na mapu' : 'Dodaj tačku'}
+                  </Button>
+                  <Button
+                    variant={isEditMode ? "warning" : "outline-warning"}
+                    size="sm"
+                    onClick={() => {
+                      console.log('✏️ Izmeni button clicked, current isEditMode:', isEditMode);
+                      setIsEditMode(!isEditMode);
+                      setIsAddingMode(false);
+                      if (!isEditMode) {
+                        console.log('✏️ Clearing editingKeyPoint');
+                        setEditingKeyPoint(null);
+                      }
+                      console.log('✏️ New isEditMode will be:', !isEditMode);
+                    }}
+                    disabled={keyPoints.length === 0}
+                    title={isEditMode ? 'Otkaži izmenu' : 'Aktiviraj režim izmene'}
+                  >
+                    <i className={isEditMode ? "fas fa-times me-1" : "fas fa-pen me-1"}></i>
+                    {isEditMode ? 'Otkaži' : 'Izmeni'}
+                  </Button>
+                </div>
               </div>
 
               {keyPoints.length === 0 ? (
@@ -202,13 +353,30 @@ const KeyPointsMap = ({ show, onHide, tourId, tourName }) => {
                             📍 {point.latitude.toFixed(4)}, {point.longitude.toFixed(4)}
                           </small>
                         </div>
-                        <Button
-                          variant="outline-danger"
-                          size="sm"
-                          onClick={() => handleDeleteKeyPoint(point.id)}
-                        >
-                          <i className="fas fa-trash"></i>
-                        </Button>
+                        <div>
+                          <Button
+                            variant="outline-secondary"
+                            size="sm"
+                            className="me-2"
+                            onClick={() => {
+                              console.log('📝 Edit button clicked for point:', point.id);
+                              handleEditKeyPoint(point);
+                            }}
+                            title="Izmeni ključnu tačku"
+                          >
+                            <i className="fas fa-edit me-1"></i>
+                            Izmeni
+                          </Button>
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            onClick={() => handleDeleteKeyPoint(point.id)}
+                            title="Obriši ključnu tačku"
+                          >
+                            <i className="fas fa-trash me-1"></i>
+                            Obriši
+                          </Button>
+                        </div>
                       </div>
                     </ListGroup.Item>
                   )) : null}
@@ -225,8 +393,21 @@ const KeyPointsMap = ({ show, onHide, tourId, tourName }) => {
                 Kliknite na mapu da dodate ključnu tačku
               </div>
             )}
+            {isEditMode && !editingKeyPoint && (
+              <div className="position-absolute top-0 start-0 end-0 bg-warning text-dark text-center py-2 z-index-1000" style={{ zIndex: 1000 }}>
+                <i className="fas fa-edit me-2"></i>
+                Izaberite ključnu tačku koju želite da izmeníte
+              </div>
+            )}
+            {isEditMode && editingKeyPoint && (
+              <div className="position-absolute top-0 start-0 end-0 bg-warning text-dark text-center py-2 z-index-1000" style={{ zIndex: 1000 }}>
+                <i className="fas fa-crosshairs me-2"></i>
+                🎯 Kliknite na mapu da pomerite: <strong>{editingKeyPoint.name}</strong>
+              </div>
+            )}
 
             <MapContainer
+              key={`map-${tourData.id}`}
               center={mapCenter}
               zoom={13}
               style={{ height: '100%', width: '100%' }}
@@ -238,9 +419,43 @@ const KeyPointsMap = ({ show, onHide, tourId, tourName }) => {
               />
               
               <MapClickHandler 
-                onMapClick={handleMapClick}
+                onMapClick={handleMapClick} 
                 isAddingMode={isAddingMode}
-              />
+                isEditMode={isEditMode}
+              />              {/* Crtanje ture - povezivanje ključnih tačaka linijom */}
+              {Array.isArray(keyPoints) && keyPoints.length > 1 && (
+                <Polyline
+                  positions={keyPoints.map(point => [point.latitude, point.longitude])}
+                  color="#007bff"
+                  weight={3}
+                  opacity={0.7}
+                  dashArray="5, 10"
+                />
+              )}
+
+              {/* Marker za novu poziciju tokom editovanja */}
+              {selectedCoordinates && isEditMode && editingKeyPoint && (
+                <Marker
+                  position={[selectedCoordinates.lat, selectedCoordinates.lng]}
+                  icon={L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                  })}
+                >
+                  <Popup>
+                    <div className="text-center">
+                      <div className="text-danger">
+                        <i className="fas fa-crosshairs"></i> <strong>Nova pozicija</strong>
+                      </div>
+                      <div>za: {editingKeyPoint.name}</div>
+                    </div>
+                  </Popup>
+                </Marker>
+              )}
 
               {/* Markeri za postojeće ključne tačke */}
               {Array.isArray(keyPoints) ? keyPoints.map((point, index) => (
@@ -290,6 +505,7 @@ const KeyPointsMap = ({ show, onHide, tourId, tourName }) => {
 
       <Modal.Footer>
         <Button variant="secondary" onClick={onHide}>
+          <i className="fas fa-times me-2"></i>
           Zatvori
         </Button>
       </Modal.Footer>
@@ -360,16 +576,101 @@ const KeyPointsMap = ({ show, onHide, tourId, tourName }) => {
                 setFormData({ name: '', description: '', image: null, imagePreview: '' });
               }}
             >
+              <i className="fas fa-times me-2"></i>
               Odustani
             </Button>
             <Button type="submit" variant="primary" disabled={loading}>
+              <i className={loading ? "fas fa-spinner fa-spin me-2" : "fas fa-save me-2"}></i>
               {loading ? 'Dodavanje...' : 'Dodaj ključnu tačku'}
             </Button>
           </Modal.Footer>
         </Form>
       </Modal>
+
+      {/* Modal za izmenu ključne tačke */}
+      <Modal show={showEditForm} onHide={() => {
+        setShowEditForm(false);
+        setEditingKeyPoint(null);
+        setSelectedCoordinates(null);
+      }}>
+        <Modal.Header closeButton>
+          <Modal.Title>Izmeni ključnu tačku</Modal.Title>
+        </Modal.Header>
+        {editingKeyPoint && (
+          <Form onSubmit={handleUpdateKeyPoint}>
+            <Modal.Body>
+              {selectedCoordinates && (
+                <Alert variant="info">
+                  📍 Nova lokacija: {selectedCoordinates.lat.toFixed(6)}, {selectedCoordinates.lng.toFixed(6)}
+                </Alert>
+              )}
+
+              <Form.Group className="mb-3">
+                <Form.Label>Naziv ključne tačke *</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={editingKeyPoint.name}
+                  onChange={(e) => setEditingKeyPoint({...editingKeyPoint, name: e.target.value})}
+                  placeholder="npr. Muzej, Park, Spomenik..."
+                  required
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Opis</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={3}
+                  value={editingKeyPoint.description || ''}
+                  onChange={(e) => setEditingKeyPoint({...editingKeyPoint, description: e.target.value})}
+                  placeholder="Opišite ovu ključnu tačku..."
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Pozicija</Form.Label>
+                {selectedCoordinates ? (
+                  <div>
+                    <div className="text-success">
+                      📍 <strong>Nova pozicija:</strong> {selectedCoordinates.lat.toFixed(6)}, {selectedCoordinates.lng.toFixed(6)}
+                    </div>
+                    <div className="text-muted small">
+                      Stara pozicija: {editingKeyPoint.latitude.toFixed(6)}, {editingKeyPoint.longitude.toFixed(6)}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-muted">
+                    📍 {editingKeyPoint.latitude.toFixed(6)}, {editingKeyPoint.longitude.toFixed(6)}
+                  </div>
+                )}
+              </Form.Group>
+            </Modal.Body>
+
+            <Modal.Footer>
+              <Button 
+                variant="secondary" 
+                onClick={() => {
+                  setShowEditForm(false);
+                  setEditingKeyPoint(null);
+                  setSelectedCoordinates(null);
+                }}
+              >
+                <i className="fas fa-times me-2"></i>
+                Odustani
+              </Button>
+              <Button type="submit" variant="warning" disabled={loading}>
+                <i className={loading ? "fas fa-spinner fa-spin me-2" : "fas fa-save me-2"}></i>
+                {loading ? 'Ažuriranje...' : 'Sačuvaj izmene'}
+              </Button>
+            </Modal.Footer>
+          </Form>
+        )}
+      </Modal>
     </Modal>
   );
-};
+});
+
+// Memoization comparison za stabilnost
+KeyPointsMap.displayName = 'KeyPointsMap';
 
 export default KeyPointsMap;

@@ -24,6 +24,37 @@ func NewKeyPointHandler(store *store.Store) *KeyPointHandler {
 	return &KeyPointHandler{store: store}
 }
 
+// calculateTourPrice računa cenu ture na osnovu broja ključnih tačaka
+// Osnovna cena: 10€, +5€ za svaku ključnu tačku
+func (h *KeyPointHandler) calculateTourPrice(tourID int64) (float64, error) {
+	keyPoints, err := h.store.GetKeyPoints(tourID)
+	if err != nil {
+		return 0, err
+	}
+
+	basePrice := 10.0       // Osnovna cena
+	pricePerKeyPoint := 5.0 // Cena po ključnoj tački
+
+	totalPrice := basePrice + (float64(len(keyPoints)) * pricePerKeyPoint)
+	return totalPrice, nil
+}
+
+// updateTourPrice ažurira cenu ture
+func (h *KeyPointHandler) updateTourPrice(tourID int64) error {
+	price, err := h.calculateTourPrice(tourID)
+	if err != nil {
+		return err
+	}
+
+	// Ažuriraj cenu ture
+	updateReq := &model.UpdateTourRequest{
+		Price: &price,
+	}
+
+	_, err = h.store.UpdateTour(tourID, updateReq)
+	return err
+}
+
 // CreateKeyPoint kreira novu ključnu tačku
 func (h *KeyPointHandler) CreateKeyPoint(c *gin.Context) {
 	userID := getUserIDFromContext(c)
@@ -133,6 +164,13 @@ func (h *KeyPointHandler) CreateKeyPoint(c *gin.Context) {
 		return
 	}
 
+	// Ažuriraj cenu ture na osnovu novih ključnih tačaka
+	err = h.updateTourPrice(req.TourID)
+	if err != nil {
+		log.Printf("Warning: Failed to update tour price: %v", err)
+		// Ne prekidamo operaciju zbog greške u ažuriranju cene
+	}
+
 	c.JSON(http.StatusCreated, gin.H{
 		"success":  true,
 		"keyPoint": keyPoint,
@@ -189,11 +227,15 @@ func (h *KeyPointHandler) GetTourKeyPoints(c *gin.Context) {
 
 // UpdateKeyPoint ažurira ključnu tačku
 func (h *KeyPointHandler) UpdateKeyPoint(c *gin.Context) {
+	log.Printf("DEBUG: UpdateKeyPoint called for keypoint ID: %s", c.Param("id"))
+
 	userID := getUserIDFromContext(c)
 	if userID == 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
+
+	log.Printf("DEBUG: User ID: %d", userID)
 
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -227,12 +269,16 @@ func (h *KeyPointHandler) UpdateKeyPoint(c *gin.Context) {
 
 	var req model.UpdateKeyPointRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("ERROR: Failed to bind JSON: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	log.Printf("DEBUG: UpdateKeyPoint request: %+v", req)
+
 	updatedKeyPoint, err := h.store.UpdateKeyPoint(id, &req)
 	if err != nil {
+		log.Printf("ERROR: Failed to update key point in store: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update key point"})
 		return
 	}
@@ -285,6 +331,13 @@ func (h *KeyPointHandler) DeleteKeyPoint(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	// Ažuriraj cenu ture na osnovu preostalih ključnih tačaka
+	err = h.updateTourPrice(keyPoint.TourID)
+	if err != nil {
+		log.Printf("Warning: Failed to update tour price after deletion: %v", err)
+		// Ne prekidamo operaciju zbog greške u ažuriranju cene
 	}
 
 	c.JSON(http.StatusOK, gin.H{

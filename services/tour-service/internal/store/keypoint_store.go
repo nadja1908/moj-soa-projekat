@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"tour-service/internal/model"
 )
@@ -113,22 +114,31 @@ func (s *Store) UpdateKeyPoint(id int64, req *model.UpdateKeyPointRequest) (*mod
 	setParts := []string{}
 	args := []interface{}{}
 
+	fmt.Printf("DEBUG: UpdateKeyPoint - req.Name: '%s', req.Description: '%s', req.Latitude: %f, req.Longitude: %f\n",
+		req.Name, req.Description, req.Latitude, req.Longitude)
+
 	if req.Name != "" {
 		setParts = append(setParts, "name = ?")
 		args = append(args, req.Name)
+		fmt.Printf("DEBUG: Added name condition\n")
 	}
 	if req.Description != "" {
 		setParts = append(setParts, "description = ?")
 		args = append(args, req.Description)
+		fmt.Printf("DEBUG: Added description condition\n")
 	}
-	if req.Latitude != nil {
+	if req.Latitude != 0 {
 		setParts = append(setParts, "latitude = ?")
-		args = append(args, *req.Latitude)
+		args = append(args, req.Latitude)
+		fmt.Printf("DEBUG: Added latitude condition\n")
 	}
-	if req.Longitude != nil {
+	if req.Longitude != 0 {
 		setParts = append(setParts, "longitude = ?")
-		args = append(args, *req.Longitude)
+		args = append(args, req.Longitude)
+		fmt.Printf("DEBUG: Added longitude condition\n")
 	}
+
+	fmt.Printf("DEBUG: setParts before joining: %v\n", setParts)
 
 	if len(setParts) == 0 {
 		return s.GetKeyPointByID(id)
@@ -137,10 +147,7 @@ func (s *Store) UpdateKeyPoint(id int64, req *model.UpdateKeyPointRequest) (*mod
 	setParts = append(setParts, "updated_at = NOW()")
 	args = append(args, id)
 
-	query := fmt.Sprintf("UPDATE key_points SET %s WHERE id = ?", setParts[0])
-	for i := 1; i < len(setParts); i++ {
-		query = fmt.Sprintf("%s, %s", query, setParts[i])
-	}
+	query := fmt.Sprintf("UPDATE key_points SET %s WHERE id = ?", strings.Join(setParts, ", "))
 
 	_, err := s.db.Exec(query, args...)
 	if err != nil {

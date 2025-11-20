@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, Button, Table, Badge, Alert, Spinner, Modal, Row, Col } from 'react-bootstrap';
 import { tourApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -12,7 +12,29 @@ const TourManagement = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
   const [selectedTour, setSelectedTour] = useState(null);
+
+  // Debug logging za state promene
+  useEffect(() => {
+    console.log('📍 showMapModal changed:', showMapModal);
+  }, [showMapModal]);
+
+  useEffect(() => {
+    console.log('📍 selectedTour changed:', selectedTour);
+  }, [selectedTour]);
   const { user } = useAuth();
+
+  const fetchMyTours = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await tourApi.get('/my');
+      setTours(response.data.tours || []);
+    } catch (error) {
+      console.error('Error fetching tours:', error);
+      setError('Greška pri učitavanju tura');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     console.log('TourManagement useEffect - user:', user);
@@ -24,20 +46,7 @@ const TourManagement = () => {
     } else {
       console.log('User not authenticated or not a guide');
     }
-  }, [user]);
-
-  const fetchMyTours = async () => {
-    try {
-      setLoading(true);
-      const response = await tourApi.get('/my');
-      setTours(response.data.tours || []);
-    } catch (error) {
-      console.error('Error fetching tours:', error);
-      setError('Greška pri učitavanju tura');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [user, fetchMyTours]);
 
   const handleCreateTour = () => {
     setShowCreateModal(true);
@@ -49,9 +58,28 @@ const TourManagement = () => {
   };
 
   const handleKeyPointsClick = (tour) => {
+    console.log('🗺️ handleKeyPointsClick called with tour:', tour);
     setSelectedTour(tour);
-    setShowMapModal(true);
+    
+    // Koristimo setTimeout da osiguramo da se selectedTour setter završi
+    setTimeout(() => {
+      setShowMapModal(true);
+      console.log('🗺️ Modal should be opening...');
+    }, 50);
   };
+
+  const handleMapModalClose = () => {
+    console.log('🔴 Closing map modal...');
+    setShowMapModal(false);
+    // NE čisti selectedTour da se spreči unmounting KeyPointsMap komponente
+    console.log('🔴 Map modal closed - preserving selectedTour for component stability');
+  };
+
+  // Stabiliziraj selectedTour podatke
+  const selectedTourData = useMemo(() => ({
+    id: selectedTour?.id,
+    name: selectedTour?.name
+  }), [selectedTour?.id, selectedTour?.name]);
 
   const getStatusBadge = (status) => {
     const variants = {
@@ -265,13 +293,15 @@ const TourManagement = () => {
         onTourCreated={handleTourCreated}
       />
 
-      {/* Modal za upravljanje ključnim tačkama */}
-      <KeyPointsMap 
-        show={showMapModal}
-        onHide={() => setShowMapModal(false)}
-        tourId={selectedTour?.id}
-        tourName={selectedTour?.name}
-      />
+      {/* Modal za upravljanje ključnim tačkama - uvek render-ovan za očuvanje state-a */}
+      {selectedTourData && (
+        <KeyPointsMap 
+          show={showMapModal}
+          onHide={handleMapModalClose}
+          tourId={selectedTourData.id}
+          tourName={selectedTourData.name}
+        />
+      )}
     </div>
   );
 };
