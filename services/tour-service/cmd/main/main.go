@@ -78,12 +78,15 @@ func main() {
 		log.Printf("DEBUG: Tour authMiddleware - After c.Next()")
 	}
 
+	// Static files za slike
+	r.Static("/uploads", "./uploads")
+
 	// Health check
 	r.GET("/health", tourHandler.Health)
 
 	// Public rute (bez autentifikacije) - tours
 	r.GET("/api/tours/published", tourHandler.GetPublishedTours)
-	r.GET("/api/tours/public/:id", tourHandler.GetTour) // Changed to avoid conflict with protected routes
+	r.GET("/api/tours/public/:id", tourHandler.GetTourForTourist) // For tourists - only first key point
 
 	// Public rute - key points i durations (koristim drugačiji path)
 	r.GET("/api/keypoints/tour/:tourId", keyPointHandler.GetTourKeyPoints)
@@ -105,9 +108,9 @@ func main() {
 	r.DELETE("/api/tours/keypoints/:id", authMiddleware, keyPointHandler.DeleteKeyPoint)
 
 	// Key points management (Gateway-compatible routes)
-	// Gateway removes /api/keypoints prefix, then ProxyToTours adds /api/tours prefix
-	// So /api/keypoints/tour/123 becomes -> "" -> /tour/123 -> /api/tours/tour/123
-	r.GET("/api/tours/tour/:tourId", authMiddleware, keyPointHandler.GetTourKeyPoints) // Gateway: GET /api/keypoints/tour/:tourId -> GET /api/tours/tour/:tourId
+	// Gateway maps: POST /api/keypoints -> POST /api/tours/keypoints (za kreiranje)
+	// Gateway maps: GET /api/keypoints/tour/123 -> GET /api/tours/tour/123 (za čitanje)
+	r.GET("/api/tours/tour/:tourId", authMiddleware, keyPointHandler.GetTourKeyPoints)
 
 	// Key points reorder (posebna grupa)
 	r.POST("/api/keypoints/reorder/:tourId", authMiddleware, keyPointHandler.ReorderKeyPoints)
