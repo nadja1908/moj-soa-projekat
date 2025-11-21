@@ -270,7 +270,7 @@ const TouristTours = () => {
                             </Button>
                           </div>
                           <small className="text-muted d-block mt-2">
-                            ID: {tour.id} • Objavljena: {formatDate(tour.publishedAt) || 'N/A'}
+                            • Objavljena: {formatDate(tour.publishedAt ) || 'N/A'}
                           </small>
                         </div>
                       </div>

@@ -176,7 +176,7 @@ const TourDetailsModal = ({ show, onHide, tourId }) => {
                         </Badge>
                         <small className="text-muted">{duration.transportType.toLowerCase()}</small>
                       </div>
-                    ))}\n                  </div>
+                    ))}                </div>
                 </Card.Body>
               </Card>
             )}
