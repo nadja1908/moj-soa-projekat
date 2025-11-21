@@ -313,26 +313,35 @@ func (h *TourHandler) ReactivateTour(c *gin.Context) {
 	})
 }
 
-// DeleteTour briše turu (samo draft ture)
+// DeleteTour briše turu (draft i archived ture)
 func (h *TourHandler) DeleteTour(c *gin.Context) {
+	log.Printf("🗑️ DELETE request received for tour")
+
 	userID := getUserIDFromContext(c)
+	log.Printf("🔍 User ID from context: %d", userID)
 	if userID == 0 {
+		log.Printf("❌ User not authenticated")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
 
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
+		log.Printf("❌ Invalid tour ID: %s", c.Param("id"))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tour ID"})
 		return
 	}
 
+	log.Printf("🎯 Attempting to delete tour ID: %d for user: %d", id, userID)
+
 	err = h.store.DeleteTour(id, userID)
 	if err != nil {
+		log.Printf("❌ Delete failed: %s", err.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	log.Printf("✅ Tour %d deleted successfully", id)
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Tour deleted successfully",

@@ -322,9 +322,9 @@ func (s *Store) ReactivateTour(id int64) error {
 	return nil
 }
 
-// DeleteTour briše turu (samo draft ture)
+// DeleteTour briše turu (draft i archived ture)
 func (s *Store) DeleteTour(id int64, authorID int64) error {
-	query := `DELETE FROM tours WHERE id = ? AND author_id = ? AND status = 'draft'`
+	query := `DELETE FROM tours WHERE id = ? AND author_id = ? AND status IN ('draft', 'archived')`
 
 	result, err := s.db.Exec(query, id, authorID)
 	if err != nil {

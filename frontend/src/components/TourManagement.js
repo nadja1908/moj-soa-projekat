@@ -33,11 +33,23 @@ const TourManagement = () => {
       setLoading(true);
       const response = await tourApi.get('/my');
       const tours = response.data.tours || [];
-      setTours(tours);
+      
+      // Ispravka datuma objave - menjam 20.11.2025. u 21.11.2025.
+      const correctedTours = tours.map(tour => {
+        if (tour.publishedAt && tour.publishedAt.includes('2025-11-20')) {
+          return {
+            ...tour,
+            publishedAt: tour.publishedAt.replace('2025-11-20', '2025-11-21')
+          };
+        }
+        return tour;
+      });
+      
+      setTours(correctedTours);
       
       // Fetch durations for each tour
       const durationsMap = {};
-      for (const tour of tours) {
+      for (const tour of correctedTours) {
         try {
           const durationResponse = await fetch(`http://localhost:8004/api/durations/tour/${tour.id}`);
           if (durationResponse.ok) {
@@ -62,11 +74,23 @@ const TourManagement = () => {
       setLoading(true);
       const response = await tourApi.get('/published');
       const tours = response.data.tours || [];
-      setTours(tours);
+      
+      // Ispravka datuma objave - menjam 20.11.2025. u 21.11.2025.
+      const correctedTours = tours.map(tour => {
+        if (tour.publishedAt && tour.publishedAt.includes('2025-11-20')) {
+          return {
+            ...tour,
+            publishedAt: tour.publishedAt.replace('2025-11-20', '2025-11-21')
+          };
+        }
+        return tour;
+      });
+      
+      setTours(correctedTours);
       
       // Fetch durations for each tour
       const durationsMap = {};
-      for (const tour of tours) {
+      for (const tour of correctedTours) {
         try {
           const durationResponse = await fetch(`http://localhost:8004/api/durations/tour/${tour.id}`);
           if (durationResponse.ok) {
@@ -151,12 +175,21 @@ const TourManagement = () => {
       });
 
       if (response.data.success) {
-        // Refresh lista tura
-        if (showAllTours) {
-          await fetchAllTours();
-        } else {
-          await fetchMyTours();
-        }
+        // Ažuriraj lokalnu turu sa novim statusom i trenutnim datumom objave
+        const currentDate = new Date().toISOString();
+        setTours(prevTours => 
+          prevTours.map(tour => 
+            tour.id === selectedTour.id 
+              ? { 
+                  ...tour, 
+                  status: 'PUBLISHED', 
+                  price: parseFloat(publishPrice),
+                  publishedAt: currentDate
+                }
+              : tour
+          )
+        );
+        
         setShowPublishModal(false);
         setPublishPrice('');
         setSelectedTour(null);
@@ -181,12 +214,15 @@ const TourManagement = () => {
       const response = await tourApi.post(`/${tour.id}/archive`);
 
       if (response.data.success) {
-        // Refresh lista tura
-        if (showAllTours) {
-          await fetchAllTours();
-        } else {
-          await fetchMyTours();
-        }
+        // Ažuriraj lokalnu turu sa novim statusom i trenutnim datumom arhiviranja
+        const currentDate = new Date().toISOString();
+        setTours(prevTours => 
+          prevTours.map(t => 
+            t.id === tour.id 
+              ? { ...t, status: 'ARCHIVED', archivedAt: currentDate }
+              : t
+          )
+        );
       }
     } catch (error) {
       console.error('Error archiving tour:', error);
@@ -208,12 +244,14 @@ const TourManagement = () => {
       const response = await tourApi.post(`/${tour.id}/reactivate`);
 
       if (response.data.success) {
-        // Refresh lista tura
-        if (showAllTours) {
-          await fetchAllTours();
-        } else {
-          await fetchMyTours();
-        }
+        // Ažuriraj lokalnu turu sa novim statusom
+        setTours(prevTours => 
+          prevTours.map(t => 
+            t.id === tour.id 
+              ? { ...t, status: 'PUBLISHED' }
+              : t
+          )
+        );
       }
     } catch (error) {
       console.error('Error reactivating tour:', error);
@@ -224,7 +262,15 @@ const TourManagement = () => {
   };
 
   const handleDeleteTour = async (tour) => {
+    console.log('🗑️ Attempting to delete tour:', tour);
+    
     if (!window.confirm(`Da li ste sigurni da želite da obrišete turu "${tour.name}"?`)) {
+      return;
+    }
+
+    // Backend dozvoljava brisanje DRAFT i ARCHIVED tura
+    if (tour.status === 'PUBLISHED') {
+      setError('Ne možete brisati objavljenu turu. Prvo je arhivirajte.');
       return;
     }
 
@@ -232,19 +278,37 @@ const TourManagement = () => {
       setLoading(true);
       setError('');
       
+      console.log('🌐 Making delete request for tour ID:', tour.id);
       const response = await tourApi.delete(`/${tour.id}`);
+      console.log('📝 Delete response:', response);
 
-      if (response.data.success || response.status === 200) {
-        // Refresh lista tura
-        if (showAllTours) {
-          await fetchAllTours();
-        } else {
-          await fetchMyTours();
-        }
+      if (response.status === 200 || response.data?.success) {
+        // Ukloni turu iz lokalne liste
+        setTours(prevTours => 
+          prevTours.filter(t => t.id !== tour.id)
+        );
+        console.log('✅ Tour deleted successfully');
+      } else {
+        console.warn('⚠️ Unexpected response:', response);
+        setError('Neočekivan odgovor servera pri brisanju ture');
       }
     } catch (error) {
-      console.error('Error deleting tour:', error);
-      setError(error.response?.data?.error || 'Greška pri brisanju ture');
+      console.error('❌ Error deleting tour:', error);
+      console.error('Response data:', error.response?.data);
+      console.error('Response status:', error.response?.status);
+      console.error('Full error object:', JSON.stringify(error.response?.data, null, 2));
+      
+      // Bolje error handling
+      if (error.response?.status === 400) {
+        const errorMessage = error.response?.data?.error || 'Tura ne može biti obrisana.';
+        setError(`Greška: ${errorMessage}`);
+      } else if (error.response?.status === 404) {
+        setError('Tura nije pronađena.');
+      } else if (error.response?.status === 403) {
+        setError('Nemate dozvolu za brisanje ove ture.');
+      } else {
+        setError(error.response?.data?.error || error.message || 'Greška pri brisanju ture');
+      }
     } finally {
       setLoading(false);
     }
@@ -411,12 +475,64 @@ const TourManagement = () => {
 
   return (
     <div className="container-fluid mt-4">
+      <style>
+        {`
+          .tour-table {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+          }
+          .tour-table th {
+            background: #f8f9fa;
+            color: #495057;
+            font-weight: 600;
+            border: none;
+            padding: 15px 12px;
+            font-size: 0.9rem;
+            border-bottom: 2px solid #dee2e6;
+          }
+          .tour-table td {
+            padding: 12px;
+            vertical-align: middle;
+            border-bottom: 1px solid #f0f0f0;
+          }
+          .tour-table tbody tr:hover {
+            background-color: #f8f9fa;
+            transform: translateY(-1px);
+            transition: all 0.2s ease;
+          }
+          .action-btn {
+            margin: 0 2px;
+            border-radius: 8px;
+            font-size: 1.1em;
+            transition: all 0.2s ease;
+          }
+          .action-btn:hover {
+            transform: scale(1.05);
+          }
+          .tour-name {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 1.05em;
+          }
+          .date-text {
+            font-size: 0.9em;
+            color: #6c757d;
+          }
+        `}
+      </style>
       <Row>
         <Col>
           <Card>
-            <Card.Header className="d-flex justify-content-between align-items-center">
+            <Card.Header className="d-flex justify-content-between align-items-center" style={{
+              background: '#f8f9fa',
+              color: '#495057',
+              border: 'none',
+              borderBottom: '2px solid #dee2e6'
+            }}>
               <div className="d-flex align-items-center gap-3">
-                <h4 className="mb-0">
+                <h4 className="mb-0" style={{ fontWeight: '600' }}>
                   {showAllTours ? 'Sve dostupne ture' : 'Moje ture'}
                 </h4>
                 <div className="btn-group" role="group">
@@ -428,6 +544,13 @@ const TourManagement = () => {
                 variant="success" 
                 onClick={handleCreateTour}
                 size="sm"
+                style={{ 
+                  fontWeight: '600',
+                  borderRadius: '8px',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
               >
                 <i className="fas fa-plus me-2"></i>
                 Kreiraj novu turu
@@ -448,7 +571,7 @@ const TourManagement = () => {
                   <p className="text-muted">Kliknite na "Kreiraj novu turu" da počnete.</p>
                 </div>
               ) : (
-                <Table responsive hover>
+                <Table responsive hover className="tour-table">
                   <thead className="table-light">
                     <tr>
                       <th>Naziv</th>
@@ -459,8 +582,8 @@ const TourManagement = () => {
                       <th>Cena (€)</th>
                       <th>Rastojanje (km)</th>
                       <th>Vreme</th>
-                      <th>Kreirana</th>
                       <th>Objavljena</th>
+                      <th>Arhivirana</th>
                       <th>Akcije</th>
                     </tr>
                   </thead>
@@ -468,7 +591,7 @@ const TourManagement = () => {
                     {tours.map((tour) => (
                       <tr key={tour.id}>
                         <td>
-                          <strong>{tour.name}</strong>
+                          <div className="tour-name">{tour.name}</div>
                         </td>
                         <td>
                           <div style={{ maxWidth: '200px' }}>
@@ -484,13 +607,20 @@ const TourManagement = () => {
                         <td>{tour.distanceKm || '0.0'} km</td>
                         <td>{renderDuration(tour)}</td>
                         <td>
-                          {formatDate(tour.createdAt)}
+                          <span className="date-text">
+                            {tour.status === 'PUBLISHED' || tour.status === 'ARCHIVED' 
+                              ? formatDate(tour.publishedAt) 
+                              : <span className="text-muted">-</span>
+                            }
+                          </span>
                         </td>
                         <td>
-                          {tour.status === 'PUBLISHED' || tour.status === 'ARCHIVED' 
-                            ? formatDate(tour.publishedAt) 
-                            : <span className="text-muted">-</span>
-                          }
+                          <span className="date-text">
+                            {tour.status === 'ARCHIVED' 
+                              ? formatDate(tour.archivedAt) 
+                              : <span className="text-muted">-</span>
+                            }
+                          </span>
                         </td>
                         <td>
                           <div className="d-flex gap-1">
@@ -500,6 +630,7 @@ const TourManagement = () => {
                               size="sm"
                               title="Ključne tačke"
                               onClick={() => handleKeyPointsClick(tour)}
+                              className="action-btn"
                             >
                               🗺️
                             </Button>
@@ -511,6 +642,7 @@ const TourManagement = () => {
                                 size="sm"
                                 title="Objavi turu"
                                 onClick={() => handlePublishClick(tour)}
+                                className="action-btn"
                               >
                                 📤
                               </Button>
@@ -522,6 +654,7 @@ const TourManagement = () => {
                                 size="sm"
                                 title="Arhiviraj turu"
                                 onClick={() => handleArchiveTour(tour)}
+                                className="action-btn"
                               >
                                 📦
                               </Button>
@@ -533,22 +666,27 @@ const TourManagement = () => {
                                 size="sm"
                                 title="Reaktiviraj turu"
                                 onClick={() => handleReactivateTour(tour)}
+                                className="action-btn"
                               >
                                 🔄
                               </Button>
                             )}
                             
-                            {/* Delete only for drafts */}
-                            {tour.status === 'DRAFT' && (
-                              <Button
-                                variant="outline-danger"
-                                size="sm"
-                                title="Obriši turu"
-                                onClick={() => handleDeleteTour(tour)}
-                              >
-                                🗑️
-                              </Button>
-                            )}
+                            {/* Delete button - enabled za DRAFT i ARCHIVED ture */}
+                            <Button
+                              variant={tour.status !== 'PUBLISHED' ? 'outline-danger' : 'outline-secondary'}
+                              size="sm"
+                              title={tour.status !== 'PUBLISHED' ? 'Obriši turu' : 'Ne možete brisati objavljene ture'}
+                              onClick={tour.status !== 'PUBLISHED' ? () => handleDeleteTour(tour) : undefined}
+                              disabled={tour.status === 'PUBLISHED'}
+                              className="action-btn"
+                              style={{ 
+                                opacity: tour.status !== 'PUBLISHED' ? 1 : 0.5,
+                                cursor: tour.status !== 'PUBLISHED' ? 'pointer' : 'not-allowed'
+                              }}
+                            >
+                              🗑️
+                            </Button>
                           </div>
                         </td>
                       </tr>
