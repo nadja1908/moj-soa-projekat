@@ -244,11 +244,12 @@ const TourManagement = () => {
       const response = await tourApi.post(`/${tour.id}/reactivate`);
 
       if (response.data.success) {
-        // Ažuriraj lokalnu turu sa novim statusom
+        // Ažuriraj lokalnu turu sa novim statusom i novim datumom objave
+        const currentDate = new Date().toISOString();
         setTours(prevTours => 
           prevTours.map(t => 
             t.id === tour.id 
-              ? { ...t, status: 'PUBLISHED' }
+              ? { ...t, status: 'PUBLISHED', publishedAt: currentDate, archivedAt: null }
               : t
           )
         );

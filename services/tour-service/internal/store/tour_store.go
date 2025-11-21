@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"time"
 
@@ -68,7 +69,8 @@ func (s *Store) GetTourByID(id int64) (*model.Tour, error) {
 func (s *Store) GetToursByAuthor(authorID int64) ([]model.TourListItem, error) {
 	query := `
 		SELECT t.id, t.name, t.description, t.difficulty_level, t.status, t.price,
-		       t.distance_km, DATE_FORMAT(t.published_at, '%Y-%m-%d %H:%i:%s') as published_at, t.tags, t.created_at
+		       t.distance_km, DATE_FORMAT(t.published_at, '%Y-%m-%d %H:%i:%s') as published_at, 
+		       DATE_FORMAT(t.archived_at, '%Y-%m-%d %H:%i:%s') as archived_at, t.tags, t.created_at
 		FROM tours t
 		WHERE t.author_id = ?
 		ORDER BY t.created_at DESC
@@ -85,15 +87,19 @@ func (s *Store) GetToursByAuthor(authorID int64) ([]model.TourListItem, error) {
 		tour := model.TourListItem{}
 		var tagsJSON sql.NullString
 		var publishedAtStr sql.NullString
+		var archivedAtStr sql.NullString
 
 		err := rows.Scan(
 			&tour.ID, &tour.Name, &tour.Description, &tour.Difficulty,
 			&tour.Status, &tour.Price, &tour.DistanceKm, &publishedAtStr,
-			&tagsJSON, &tour.CreatedAt,
+			&archivedAtStr, &tagsJSON, &tour.CreatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
+
+		log.Printf("DEBUG: Raw data from DB - ID: %d, publishedAtStr: '%s', archivedAtStr: '%s'",
+			tour.ID, publishedAtStr.String, archivedAtStr.String)
 
 		// Convert sql.NullString datetime to *string (samo datum)
 		if publishedAtStr.Valid && publishedAtStr.String != "" {
@@ -105,6 +111,21 @@ func (s *Store) GetToursByAuthor(authorID int64) ([]model.TourListItem, error) {
 			}
 		} else {
 			tour.PublishedAt = nil
+		}
+
+		// Convert archived_at datum
+		if archivedAtStr.Valid && archivedAtStr.String != "" {
+			if parsedTime, err := time.Parse("2006-01-02 15:04:05", archivedAtStr.String); err == nil {
+				dateOnly := parsedTime.Format("2006-01-02") // Samo datum do 'T'
+				tour.ArchivedAt = &dateOnly
+				log.Printf("DEBUG: Tour ID %d - parsed archivedAt: '%s'", tour.ID, dateOnly)
+			} else {
+				tour.ArchivedAt = nil
+				log.Printf("DEBUG: Tour ID %d - failed to parse archivedAt: '%s', error: %v", tour.ID, archivedAtStr.String, err)
+			}
+		} else {
+			tour.ArchivedAt = nil
+			log.Printf("DEBUG: Tour ID %d - archivedAt is null or empty", tour.ID)
 		}
 
 		// Parse tags JSON
@@ -301,7 +322,7 @@ func (s *Store) ArchiveTour(id int64) error {
 func (s *Store) ReactivateTour(id int64) error {
 	query := `
 		UPDATE tours 
-		SET status = 'PUBLISHED', archived_at = NULL, updated_at = NOW()
+		SET status = 'PUBLISHED', archived_at = NULL, published_at = NOW(), updated_at = NOW()
 		WHERE id = ? AND status = 'ARCHIVED'
 	`
 
