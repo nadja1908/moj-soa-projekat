@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Badge, Button, Spinner, Alert } from 'react-bootstrap';
-import { blogApi } from '../services/api';
+import { Card, Badge, Button, Spinner, Alert, Form, ListGroup } from 'react-bootstrap';
+import { blogApi, followerApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ReactMarkdown from 'react-markdown';
 
@@ -8,11 +8,27 @@ const BlogPosts = () => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [followingUsers, setFollowingUsers] = useState(new Set());
+  const [expandedPost, setExpandedPost] = useState(null);
+  const [comments, setComments] = useState({});
+  const [newComment, setNewComment] = useState('');
   const { user } = useAuth();
 
   useEffect(() => {
     fetchPosts();
-  }, []);
+    if (user) {
+      fetchFollowingUsers();
+    }
+  }, [user]);
+
+  const fetchFollowingUsers = async () => {
+    try {
+      const response = await followerApi.get('/following');
+      setFollowingUsers(new Set(response.data));
+    } catch (error) {
+      console.error('Error fetching following users:', error);
+    }
+  };
 
   const fetchPosts = async () => {
     try {
@@ -67,6 +83,68 @@ const BlogPosts = () => {
     } catch (error) {
       console.error('Error unliking post:', error);
       setError('Greška pri uklanjanju označavanja');
+    }
+  };
+
+  const handleFollow = async (userId) => {
+    try {
+      await followerApi.post('/follow', { followingId: userId });
+      await fetchFollowingUsers();
+      setError('');
+    } catch (error) {
+      console.error('Error following user:', error);
+      setError('Greška pri praćenju korisnika');
+    }
+  };
+
+  const handleUnfollow = async (userId) => {
+    try {
+      await followerApi.delete(`/unfollow/${userId}`);
+      await fetchFollowingUsers();
+      setError('');
+    } catch (error) {
+      console.error('Error unfollowing user:', error);
+      setError('Greška pri otpraćivanju korisnika');
+    }
+  };
+
+  const fetchComments = async (postId) => {
+    try {
+      const response = await blogApi.get(`/posts/${postId}`);
+      if (response.data && response.data.comments) {
+        setComments(prev => ({ ...prev, [postId]: response.data.comments }));
+      }
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+    }
+  };
+
+  const handleAddComment = async (postId) => {
+    if (!newComment.trim()) return;
+
+    try {
+      await blogApi.post(`/posts/${postId}/comments`, {
+        commentText: newComment
+      });
+      setNewComment('');
+      await fetchComments(postId);
+      setError('');
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      if (error.response?.status === 403) {
+        setError('Morate pratiti autora da biste mogli komentarisati njegov blog');
+      } else {
+        setError('Greška pri dodavanju komentara');
+      }
+    }
+  };
+
+  const togglePostDetails = async (postId) => {
+    if (expandedPost === postId) {
+      setExpandedPost(null);
+    } else {
+      setExpandedPost(postId);
+      await fetchComments(postId);
     }
   };
 
@@ -223,15 +301,35 @@ const BlogPosts = () => {
                             <small className="text-muted">
                               📅 {formatDate(createdAt)}
                             </small>
-                            <Badge bg="info" className="role-badge">
-                              {post.author?.username || 'Nepoznat autor'}
-                            </Badge>
+                            <div className="d-flex align-items-center gap-2">
+                              <Badge bg="info" className="role-badge">
+                                {post.author?.username || 'Nepoznat autor'}
+                              </Badge>
+                              {user && post.author && post.author.id !== user.id && (
+                                <Button
+                                  size="sm"
+                                  variant={followingUsers.has(post.author.id) ? 'secondary' : 'primary'}
+                                  onClick={() =>
+                                    followingUsers.has(post.author.id)
+                                      ? handleUnfollow(post.author.id)
+                                      : handleFollow(post.author.id)
+                                  }
+                                >
+                                  {followingUsers.has(post.author.id) ? 'Otprati' : 'Prati'}
+                                </Button>
+                              )}
+                            </div>
                           </div>
 
-                          <div className="d-flex justify-content-between align-items-center">
-                            <small className="text-muted">
-                              💬 {post.comments?.length || 0} komentara
-                            </small>
+                          <div className="d-flex justify-content-between align-items-center mb-2">
+                            <Button
+                              size="sm"
+                              variant="link"
+                              className="p-0 text-decoration-none"
+                              onClick={() => togglePostDetails(post.id)}
+                            >
+                              💬 {comments[post.id]?.length || 0} komentara
+                            </Button>
                             <div className="d-flex align-items-center">
                               <button
                                 className={`like-button me-2 ${
@@ -254,10 +352,60 @@ const BlogPosts = () => {
                                 ❤️
                               </button>
                               <small className="text-muted">
-                                {post.likes || 0}
+                                {post.likesCount || 0}
                               </small>
                             </div>
                           </div>
+
+                          {/* Comments Section */}
+                          {expandedPost === post.id && (
+                            <div className="mt-3 border-top pt-3">
+                              <h6 className="mb-3">Komentari</h6>
+                              
+                              {/* Add Comment Form */}
+                              {user && (
+                                <Form className="mb-3">
+                                  <Form.Group>
+                                    <Form.Control
+                                      as="textarea"
+                                      rows={2}
+                                      placeholder="Napišite komentar..."
+                                      value={newComment}
+                                      onChange={(e) => setNewComment(e.target.value)}
+                                    />
+                                  </Form.Group>
+                                  <Button
+                                    size="sm"
+                                    variant="primary"
+                                    className="mt-2"
+                                    onClick={() => handleAddComment(post.id)}
+                                    disabled={!newComment.trim()}
+                                  >
+                                    Dodaj komentar
+                                  </Button>
+                                </Form>
+                              )}
+
+                              {/* Comments List */}
+                              {comments[post.id] && comments[post.id].length > 0 ? (
+                                <ListGroup variant="flush">
+                                  {comments[post.id].map((comment) => (
+                                    <ListGroup.Item key={comment.id} className="px-0">
+                                      <div className="d-flex justify-content-between">
+                                        <strong className="text-primary">Korisnik {comment.userId}</strong>
+                                        <small className="text-muted">
+                                          {formatDate(comment.createdAt)}
+                                        </small>
+                                      </div>
+                                      <p className="mb-0 mt-1">{comment.commentText}</p>
+                                    </ListGroup.Item>
+                                  ))}
+                                </ListGroup>
+                              ) : (
+                                <p className="text-muted text-center">Nema komentara</p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </Card.Body>

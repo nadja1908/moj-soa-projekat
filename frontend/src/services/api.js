@@ -59,6 +59,14 @@ const keypointsApi = axios.create({
   },
 });
 
+// Follower API through Gateway
+const followerApi = axios.create({
+  baseURL: `${API_GATEWAY_URL}/api/follower`,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
 // Request interceptor to add auth token
 const requestInterceptor = (config) => {
   const token = localStorage.getItem('token');
@@ -84,6 +92,7 @@ blogApi.interceptors.request.use(requestInterceptor);
 adminApi.interceptors.request.use(requestInterceptor);
 tourApi.interceptors.request.use(requestInterceptor);
 keypointsApi.interceptors.request.use(requestInterceptor);
+followerApi.interceptors.request.use(requestInterceptor);
 
 // Add error interceptors to all APIs
 authApi.interceptors.response.use((response) => response, handleAuthError);
@@ -91,6 +100,7 @@ usersApi.interceptors.response.use((response) => response, handleAuthError);
 adminApi.interceptors.response.use((response) => response, handleAuthError);
 tourApi.interceptors.response.use((response) => response, handleAuthError);
 keypointsApi.interceptors.response.use((response) => response, handleAuthError);
+followerApi.interceptors.response.use((response) => response, handleAuthError);
 
 // Special blog API interceptor with detailed error logging
 blogApi.interceptors.response.use(
@@ -111,4 +121,4 @@ blogApi.interceptors.response.use(
 const stakeholdersApi = usersApi;
 
 export default authApi;
-export { authApi, usersApi, blogApi, adminApi, stakeholdersApi, tourApi, keypointsApi };
+export { authApi, usersApi, blogApi, adminApi, stakeholdersApi, tourApi, keypointsApi, followerApi };
