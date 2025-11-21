@@ -16,14 +16,16 @@ type GatewayHandler struct {
 	stakeholdersServiceURL string
 	blogServiceURL         string
 	tourServiceURL         string
+	followerServiceURL     string
 }
 
-func NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, tourServiceURL string) *GatewayHandler {
+func NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, tourServiceURL, followerServiceURL string) *GatewayHandler {
 	return &GatewayHandler{
 		authServiceURL:         authServiceURL,
 		stakeholdersServiceURL: stakeholdersServiceURL,
 		blogServiceURL:         blogServiceURL,
 		tourServiceURL:         tourServiceURL,
+		followerServiceURL:     followerServiceURL,
 	}
 }
 
@@ -94,6 +96,26 @@ func (h *GatewayHandler) ProxyToBlog(c *gin.Context) {
 
 	finalURL := h.blogServiceURL + path
 	log.Println("[ProxyToBlog] FINAL URL:", finalURL)
+
+	h.proxyRequest(c, finalURL)
+}
+
+// ////////////////////////
+// FOLLOWER SERVICE PROXY
+// ////////////////////////
+func (h *GatewayHandler) ProxyToFollower(c *gin.Context) {
+	log.Println("------------------------------------------------")
+	log.Println("[ProxyToFollower] ORIGINAL PATH:", c.Request.URL.Path)
+	log.Println("[ProxyToFollower] AUTH FROM CLIENT:", c.GetHeader("Authorization"))
+
+	original := c.Request.URL.Path
+	path := strings.TrimPrefix(original, "/api/follower")
+	if path == "" {
+		path = "/"
+	}
+
+	finalURL := h.followerServiceURL + "/api/follower" + path
+	log.Println("[ProxyToFollower] FINAL URL:", finalURL)
 
 	h.proxyRequest(c, finalURL)
 }

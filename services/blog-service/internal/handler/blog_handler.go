@@ -18,13 +18,15 @@ import (
 type BlogHandler struct {
 	store                  *store.Store
 	stakeholdersServiceURL string
+	followerServiceURL     string
 	httpClient             *http.Client
 }
 
-func NewBlogHandler(store *store.Store, stakeholdersServiceURL string) *BlogHandler {
+func NewBlogHandler(store *store.Store, stakeholdersServiceURL, followerServiceURL string) *BlogHandler {
 	return &BlogHandler{
 		store:                  store,
 		stakeholdersServiceURL: stakeholdersServiceURL,
+		followerServiceURL:     followerServiceURL,
 		httpClient:             &http.Client{Timeout: 5 * time.Second},
 	}
 }
@@ -164,6 +166,7 @@ func (h *BlogHandler) GetBlogPost(c *gin.Context) {
 }
 
 // CreateComment kreira novi komentar
+// SAGA PATTERN: Proverava da li korisnik prati autora pre kreiranja komentara
 func (h *BlogHandler) CreateComment(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
@@ -178,6 +181,36 @@ func (h *BlogHandler) CreateComment(c *gin.Context) {
 		return
 	}
 
+	// 1️⃣ SAGA STEP 1: Dohvati blog post da bi znali ko je author
+	post, err := h.store.GetBlogPostByID(blogID)
+	if err != nil || post == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Blog post not found"})
+		return
+	}
+
+	// 2️⃣ SAGA STEP 2: Proveri da li korisnik prati autora (poziv ka Follower Service)
+	currentUserID := userID.(int64)
+	authorID := post.UserID
+
+	// Ako korisnik komentariše svoj blog, dozvoli
+	if currentUserID != authorID {
+		isFollowing, err := h.checkIfUserFollowsAuthor(currentUserID, authorID)
+		if err != nil {
+			fmt.Printf("Error checking follower status: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify follower status"})
+			return
+		}
+
+		if !isFollowing {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error":   "You must follow the author to comment on their blog",
+				"message": "SAGA validation failed: User does not follow the author",
+			})
+			return
+		}
+	}
+
+	// 3️⃣ SAGA STEP 3: Kreiraj komentar
 	var req model.CreateCommentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -186,7 +219,7 @@ func (h *BlogHandler) CreateComment(c *gin.Context) {
 
 	comment := &model.BlogComment{
 		BlogID:      blogID,
-		UserID:      userID.(int64),
+		UserID:      currentUserID,
 		CommentText: req.CommentText,
 	}
 
@@ -199,6 +232,83 @@ func (h *BlogHandler) CreateComment(c *gin.Context) {
 		"message": "Comment created successfully",
 		"comment": comment,
 	})
+}
+
+// checkIfUserFollowsAuthor proverava da li follower prati author (poziv ka Follower Service)
+func (h *BlogHandler) checkIfUserFollowsAuthor(followerID, authorID int64) (bool, error) {
+	url := fmt.Sprintf("%s/api/follower/check-following/%d/%d", h.followerServiceURL, followerID, authorID)
+
+	resp, err := h.httpClient.Get(url)
+	if err != nil {
+		return false, fmt.Errorf("failed to call follower service: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("follower service returned status: %d", resp.StatusCode)
+	}
+
+	var response struct {
+		IsFollowing bool `json:"isFollowing"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return false, fmt.Errorf("failed to decode follower response: %w", err)
+	}
+
+	return response.IsFollowing, nil
+}
+
+// UpdateComment ažurira postojeći komentar
+func (h *BlogHandler) UpdateComment(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	commentIDStr := c.Param("commentId")
+	commentID, err := strconv.ParseInt(commentIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid comment ID"})
+		return
+	}
+
+	var req model.CreateCommentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.store.UpdateComment(commentID, userID.(int64), req.CommentText); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Comment updated successfully"})
+}
+
+// DeleteComment briše komentar
+func (h *BlogHandler) DeleteComment(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	commentIDStr := c.Param("commentId")
+	commentID, err := strconv.ParseInt(commentIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid comment ID"})
+		return
+	}
+
+	if err := h.store.DeleteComment(commentID, userID.(int64)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Comment deleted successfully"})
 }
 
 // LikeBlogPost lajkuje blog post

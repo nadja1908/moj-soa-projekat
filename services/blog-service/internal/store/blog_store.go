@@ -160,6 +160,50 @@ func (s *Store) GetCommentsByBlogID(blogID int64) ([]model.BlogComment, error) {
 	return comments, nil
 }
 
+// UpdateComment ažurira postojeći komentar
+func (s *Store) UpdateComment(commentID, userID int64, newText string) error {
+	query := `UPDATE blog_comments 
+			  SET comment_text = ?, updated_at = CURRENT_TIMESTAMP 
+			  WHERE id = ? AND user_id = ?`
+
+	result, err := s.db.Exec(query, newText, commentID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update comment: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("comment not found or user not authorized")
+	}
+
+	return nil
+}
+
+// DeleteComment briše komentar
+func (s *Store) DeleteComment(commentID, userID int64) error {
+	query := `DELETE FROM blog_comments WHERE id = ? AND user_id = ?`
+
+	result, err := s.db.Exec(query, commentID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to delete comment: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("comment not found or user not authorized")
+	}
+
+	return nil
+}
+
 // LikeBlogPost dodaje lajk na blog post
 func (s *Store) LikeBlogPost(userID, blogID int64) error {
 	query := `INSERT IGNORE INTO blog_likes (blog_id, user_id) VALUES (?, ?)`
