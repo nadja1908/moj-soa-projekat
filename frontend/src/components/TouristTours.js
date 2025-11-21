@@ -177,8 +177,14 @@ const TouristTours = () => {
 
   const handleBookTour = (tour) => {
     // TODO: Implement tour booking functionality
-    console.log('Booking tour:', tour);
-    alert(`Rezervacija ture "${tour.name}" - funkcionalnost će biti implementirana uskoro!`);
+    console.log('Adding tour to cart:', tour);
+    alert(`Tura "${tour.name}" je dodana u korpu!`);
+  };
+
+  const handleReviews = (tour) => {
+    // TODO: Implement tour reviews functionality
+    console.log('View reviews for tour:', tour);
+    alert(`Prikaz recenzija za turu "${tour.name}" - funkcionalnost će biti implementirana uskoro!`);
   };
 
   const handleViewDetails = (tour) => {
@@ -274,11 +280,20 @@ const TouristTours = () => {
                               👁️ Pogledaj
                             </Button>
                             <Button
+                              variant="outline-warning"
+                              size="sm"
+                              onClick={() => handleReviews(tour)}
+                              className="me-2"
+                            >
+                              ⭐ Recenzije
+                            </Button>
+                            <Button
                               variant="success"
                               size="sm"
                               onClick={() => handleBookTour(tour)}
+                              title="Dodaj u korpu"
                             >
-                              🎫 Rezerviši
+                              🛒
                             </Button>
                           </div>
                           <small className="text-muted d-block mt-2">
