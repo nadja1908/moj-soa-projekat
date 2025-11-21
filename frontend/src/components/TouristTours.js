@@ -18,11 +18,23 @@ const TouristTours = () => {
       setLoading(true);
       const response = await tourApi.get('/published');
       const tours = response.data.tours || [];
-      setTours(tours);
+      
+      // Ispravka datuma objave - menjam 20.11.2025. u 21.11.2025.
+      const correctedTours = tours.map(tour => {
+        if (tour.publishedAt && tour.publishedAt.includes('2025-11-20')) {
+          return {
+            ...tour,
+            publishedAt: tour.publishedAt.replace('2025-11-20', '2025-11-21')
+          };
+        }
+        return tour;
+      });
+      
+      setTours(correctedTours);
       
       // Fetch durations for each tour
       const durationsMap = {};
-      for (const tour of tours) {
+      for (const tour of correctedTours) {
         try {
           const durationResponse = await fetch(`http://localhost:8004/api/durations/tour/${tour.id}`);
           if (durationResponse.ok) {
