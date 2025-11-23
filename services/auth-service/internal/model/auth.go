@@ -29,6 +29,26 @@ type TokenValidationRequest struct {
 	Token string `json:"token" binding:"required"`
 }
 
+// RPC Response models
+type LoginResponse struct {
+	Token        string   `json:"token"`
+	RefreshToken string   `json:"refreshToken"`
+	User         UserInfo `json:"user"`
+}
+
+type RegisterResponse struct {
+	Success bool     `json:"success"`
+	Message string   `json:"message"`
+	User    UserInfo `json:"user"`
+}
+
+type UserInfo struct {
+	ID       int64  `json:"id"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Role     string `json:"role"`
+}
+
 // TokenValidationResponse je odgovor na validaciju tokena
 type TokenValidationResponse struct {
 	Valid  bool   `json:"valid"`

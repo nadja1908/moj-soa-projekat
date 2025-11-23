@@ -32,6 +32,8 @@ services:
       - STAKEHOLDERS_SERVICE_URL=http://stakeholders-service:8001
       - BLOG_SERVICE_URL=http://blog-service:8002
       - TOUR_SERVICE_URL=http://tour-service:8004
+      - AUTH_RPC_ADDR=auth-service:9003
+      - TOUR_RPC_ADDR=tour-service:9004
     networks:
       - app-network
     healthcheck:
@@ -88,8 +90,10 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8003:8003"
+      - "9003:9003"
     environment:
       - PORT=8003
+      - RPC_PORT=9003
       - SERVICE_NAME=AUTH-SERVICE
       - EUREKA_SERVER_URL=http://eureka-server:8761/eureka
       - STAKEHOLDERS_SERVICE_URL=http://stakeholders-service:8001
@@ -141,8 +145,10 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8004:8004"
+      - "9004:9004"
     environment:
       - PORT=8004
+      - RPC_PORT=9004
       - SERVICE_NAME=TOUR-SERVICE
       - DB_USER=user
       - DB_PASS=password

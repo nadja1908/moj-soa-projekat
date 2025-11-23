@@ -2,20 +2,28 @@ package main
 
 import (
 	"log"
+	"net"
 	"net/http"
+	"net/rpc"
 	"os"
+
+	"auth-service/internal/handler"
+	authRpc "auth-service/internal/rpc"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"auth-service/internal/handler"
 )
 
 func main() {
 	port := getEnv("PORT", "8003")
+	rpcPort := getEnv("RPC_PORT", "9003")
 	stakeholdersService := getEnv("STAKEHOLDERS_SERVICE_URL", "http://stakeholders-service:8001")
 
 	// Inicijalizacija auth handler-a
 	authHandler := handler.NewAuthHandler(stakeholdersService)
+
+	// Start RPC server in a goroutine
+	go startRPCServer(rpcPort, stakeholdersService)
 
 	r := gin.Default()
 
@@ -41,6 +49,27 @@ func main() {
 
 	log.Printf("Auth service starting on port %s", port)
 	log.Fatal(http.ListenAndServe(":"+port, r))
+}
+
+func startRPCServer(port, stakeholdersServiceURL string) {
+	// Create RPC handler
+	rpcHandler := handler.NewAuthRPCHandler(stakeholdersServiceURL)
+
+	// Create RPC service
+	authService := authRpc.NewAuthService(rpcHandler)
+
+	// Register RPC service
+	rpc.Register(authService)
+	rpc.HandleHTTP()
+
+	// Start listening
+	listener, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		log.Fatal("RPC server failed to start:", err)
+	}
+
+	log.Printf("Auth RPC server starting on port %s", port)
+	log.Fatal(http.Serve(listener, nil))
 }
 
 func getEnv(key, defaultValue string) string {

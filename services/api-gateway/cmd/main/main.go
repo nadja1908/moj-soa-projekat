@@ -40,6 +40,17 @@ func main() {
 		log.Printf("DEBUG: Using default tour service URL: '%s'", tourServiceURL)
 	}
 
+	// RPC service addresses
+	authRPCAddr := os.Getenv("AUTH_RPC_ADDR")
+	if authRPCAddr == "" {
+		authRPCAddr = "auth-service:9003"
+	}
+
+	tourRPCAddr := os.Getenv("TOUR_RPC_ADDR")
+	if tourRPCAddr == "" {
+		tourRPCAddr = "tour-service:9004"
+	}
+
 	// Initialize Gin router
 	router := gin.Default()
 
@@ -68,6 +79,16 @@ func main() {
 	gatewayHandler := handler.NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, tourServiceURL)
 	log.Printf("DEBUG: Gateway handler created successfully!")
 
+	// Initialize RPC handler
+	rpcHandler, err := handler.NewRPCHandler(authRPCAddr, tourRPCAddr)
+	if err != nil {
+		log.Printf("WARNING: Failed to initialize RPC handler: %v", err)
+		log.Printf("RPC endpoints will not be available")
+	} else {
+		defer rpcHandler.Close()
+		log.Printf("RPC handler initialized successfully!")
+	}
+
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(authServiceURL)
 
@@ -83,6 +104,15 @@ func main() {
 		auth.POST("/register", gatewayHandler.ProxyToAuth)
 		auth.POST("/refresh", gatewayHandler.ProxyToAuth)
 		auth.GET("/validate", gatewayHandler.ProxyToAuth)
+	}
+
+	// RPC Auth routes (alternative implementation)
+	if rpcHandler != nil {
+		rpcAuth := router.Group("/api/rpc/auth")
+		{
+			rpcAuth.POST("/login", rpcHandler.RPCLogin)
+			rpcAuth.POST("/register", rpcHandler.RPCRegister)
+		}
 	}
 
 	// User routes (auth required)
@@ -145,6 +175,17 @@ func main() {
 		toursProtected.POST("/:id/publish", gatewayHandler.ProxyToTours)
 		toursProtected.POST("/:id/archive", gatewayHandler.ProxyToTours)
 		toursProtected.POST("/:id/reactivate", gatewayHandler.ProxyToTours)
+	}
+
+	// RPC Tour routes (alternative implementation)
+	if rpcHandler != nil {
+		rpcTours := router.Group("/api/rpc/tours")
+		rpcTours.Use(authMiddleware.ValidateToken())
+		{
+			rpcTours.POST("", rpcHandler.RPCCreateTour)
+			rpcTours.POST("/", rpcHandler.RPCCreateTour)
+			rpcTours.GET("/my", rpcHandler.RPCGetTours)
+		}
 	}
 	log.Printf("DEBUG: Tour routes configured successfully!")
 

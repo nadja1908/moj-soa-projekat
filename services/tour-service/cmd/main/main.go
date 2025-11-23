@@ -2,10 +2,14 @@ package main
 
 import (
 	"log"
+	"net"
+	"net/http"
+	"net/rpc"
 	"os"
 	"strconv"
 
 	"tour-service/internal/handler"
+	tourRpc "tour-service/internal/rpc"
 	"tour-service/internal/store"
 
 	"github.com/gin-contrib/cors"
@@ -17,6 +21,11 @@ func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8004"
+	}
+
+	rpcPort := os.Getenv("RPC_PORT")
+	if rpcPort == "" {
+		rpcPort = "9004"
 	}
 
 	dbUser := os.Getenv("DB_USER")
@@ -31,6 +40,9 @@ func main() {
 	// Inicijalizacija store
 	store := store.NewStore(dbUser, dbPass, dbHost, dbName)
 	defer store.Close()
+
+	// Start RPC server in a goroutine
+	go startRPCServer(rpcPort, store)
 
 	// Inicijalizacija handlers
 	tourHandler := handler.NewTourHandler(store)
@@ -131,4 +143,25 @@ func main() {
 
 	log.Printf("Tour service starting on port %s", port)
 	log.Fatal(r.Run(":" + port))
+}
+
+func startRPCServer(port string, store *store.Store) {
+	// Create RPC handler
+	rpcHandler := handler.NewTourRPCHandler(store)
+
+	// Create RPC service
+	tourService := tourRpc.NewTourService(rpcHandler)
+
+	// Register RPC service
+	rpc.Register(tourService)
+	rpc.HandleHTTP()
+
+	// Start listening
+	listener, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		log.Fatal("Tour RPC server failed to start:", err)
+	}
+
+	log.Printf("Tour RPC server starting on port %s", port)
+	log.Fatal(http.Serve(listener, nil))
 }
