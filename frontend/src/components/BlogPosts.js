@@ -15,22 +15,34 @@ const BlogPosts = () => {
   const { user } = useAuth();
 
   useEffect(() => {
-    fetchPosts();
-    if (user) {
-      fetchFollowingUsers();
-    }
+    const loadData = async () => {
+      if (user) {
+        // Get following users first
+        const followingSet = await fetchFollowingUsers();
+        // Then fetch and filter posts with the following users
+        await fetchPosts(followingSet);
+      } else {
+        await fetchPosts(new Set());
+      }
+    };
+    loadData();
   }, [user]);
 
   const fetchFollowingUsers = async () => {
     try {
       const response = await followerApi.get('/following');
-      setFollowingUsers(new Set(response.data));
+      const followingSet = new Set(response.data);
+      setFollowingUsers(followingSet);
+      return followingSet;
     } catch (error) {
       console.error('Error fetching following users:', error);
+      const emptySet = new Set();
+      setFollowingUsers(emptySet);
+      return emptySet;
     }
   };
 
-  const fetchPosts = async () => {
+  const fetchPosts = async (followingSet) => {
     try {
       setLoading(true);
       setError('');
@@ -38,13 +50,39 @@ const BlogPosts = () => {
       console.log('BlogPosts API response:', response);
 
       const postsData = response.data;
+      let allPosts = [];
+      
       if (Array.isArray(postsData)) {
-        setPosts(postsData);
+        allPosts = postsData;
       } else if (postsData && postsData.posts && Array.isArray(postsData.posts)) {
-        setPosts(postsData.posts);
+        allPosts = postsData.posts;
       } else {
         console.warn('API did not return array, setting empty array');
-        setPosts([]);
+        allPosts = [];
+      }
+
+      // Filtriraj postove: prikaži samo postove od korisnika koje pratiš (bez tvojih postova)
+      if (user) {
+        console.log('Filtering posts. Following users:', Array.from(followingSet));
+        console.log('User ID:', user.id);
+        const filteredPosts = allPosts.filter(post => {
+          // NE prikazuj svoj post
+          if (post.author && post.author.id === user.id) {
+            console.log(`Excluding own post: ${post.id}`);
+            return false;
+          }
+          // Prikaži post od korisnika koje pratiš
+          if (post.author && followingSet.has(post.author.id)) {
+            console.log(`Including post ${post.id} from followed user ${post.author.id}`);
+            return true;
+          }
+          console.log(`Excluding post ${post.id} from unfollowed user ${post.author.id}`);
+          return false;
+        });
+        console.log('Filtered posts count:', filteredPosts.length);
+        setPosts(filteredPosts);
+      } else {
+        setPosts(allPosts);
       }
     } catch (error) {
       console.error('Error fetching posts:', error);
