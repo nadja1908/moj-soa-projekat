@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"strconv"
@@ -136,9 +137,24 @@ func (h *TourHandler) GetTourForTourist(c *gin.Context) {
 
 	log.Printf("DEBUG: GetTourForTourist success: %+v", tour)
 
+	tags := []string{}
+	if tour.Tour.Tags != "" {
+		_ = json.Unmarshal([]byte(tour.Tour.Tags), &tags)
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"tour":    tour,
+		"tour": gin.H{
+			"id":          tour.Tour.ID,
+			"name":        tour.Tour.Name,
+			"price":       tour.Tour.Price,
+			"status":      string(tour.Tour.Status),
+			"description": tour.Tour.Description,
+			"distanceKm":  tour.Tour.DistanceKm,
+			"difficulty":  string(tour.Tour.Difficulty),
+			"tags":        tags,
+			"publishedAt": tour.Tour.PublishedAt,
+		},
 	})
 }
 
