@@ -57,18 +57,24 @@ public class FollowerController : ControllerBase
         try
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            _logger.LogInformation("UnfollowUser: userIdClaim = {Claim}, followingId = {FollowingId}", userIdClaim, followingId);
+            
             if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int followerId))
             {
+                _logger.LogWarning("Invalid user token in UnfollowUser");
                 return Unauthorized(new { message = "Invalid user token" });
             }
 
+            _logger.LogInformation("Attempting to unfollow: follower={FollowerId}, following={FollowingId}", followerId, followingId);
             var success = await _neo4jService.UnfollowUserAsync(followerId, followingId);
+            _logger.LogInformation("Unfollow result: {Success}", success);
             
             if (success)
             {
                 return Ok(new { message = "User unfollowed successfully" });
             }
             
+            _logger.LogWarning("Follow relationship not found between {FollowerId} and {FollowingId}", followerId, followingId);
             return NotFound(new { message = "Follow relationship not found" });
         }
         catch (Exception ex)
@@ -144,13 +150,20 @@ public class FollowerController : ControllerBase
     {
         try
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                           ?? User.FindFirst("sub")?.Value 
+                           ?? User.FindFirst("userId")?.Value;
+            
+            _logger.LogInformation("GetFollowing: userIdClaim = {Claim}", userIdClaim);
+            
             if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
             {
+                _logger.LogWarning("Invalid user token - userIdClaim: {Claim}", userIdClaim);
                 return Unauthorized(new { message = "Invalid user token" });
             }
 
             var following = await _neo4jService.GetFollowingAsync(userId);
+            _logger.LogInformation("User {UserId} is following {Count} users", userId, following.Count);
             return Ok(following);
         }
         catch (Exception ex)

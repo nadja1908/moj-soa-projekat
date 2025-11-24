@@ -119,6 +119,28 @@ func (h *BlogHandler) enrichPostsWithAuthors(posts []model.BlogPost) {
 	}
 }
 
+// enrichPostsWithLikeStatus dodaje isLiked flag za trenutnog korisnika
+func (h *BlogHandler) enrichPostsWithLikeStatus(posts *[]model.BlogPost, userID int64) {
+	fmt.Printf("[DEBUG] enrichPostsWithLikeStatus called with userID: %d, posts count: %d\n", userID, len(*posts))
+	for i := range *posts {
+		isLiked, err := h.store.IsPostLikedByUser(userID, (*posts)[i].ID)
+		fmt.Printf("[DEBUG] Post ID %d: isLiked=%v, err=%v\n", (*posts)[i].ID, isLiked, err)
+		if err == nil {
+			(*posts)[i].IsLiked = isLiked
+		}
+	}
+}
+
+// enrichPostsWithComments dodaje CommentsCount za sve postove
+func (h *BlogHandler) enrichPostsWithComments(posts *[]model.BlogPost) {
+	for i := range *posts {
+		count, err := h.store.GetCommentsCountForPost((*posts)[i].ID)
+		if err == nil {
+			(*posts)[i].CommentsCount = count
+		}
+	}
+}
+
 // GetAllBlogPosts vraća sve blog postove
 func (h *BlogHandler) GetAllBlogPosts(c *gin.Context) {
 	posts, err := h.store.GetAllBlogPosts()
@@ -129,6 +151,17 @@ func (h *BlogHandler) GetAllBlogPosts(c *gin.Context) {
 
 	// Dodaj author informacije
 	h.enrichPostsWithAuthors(posts)
+
+	// Dodaj comments count
+	h.enrichPostsWithComments(&posts)
+
+	// Dodaj isLiked informaciju za trenutnog korisnika
+	userID, exists := c.Get("userID")
+	fmt.Printf("[DEBUG] GetAllBlogPosts - userID exists: %v, userID: %v\n", exists, userID)
+	if exists {
+		currentUserID := userID.(int64)
+		h.enrichPostsWithLikeStatus(&posts, currentUserID)
+	}
 
 	c.JSON(http.StatusOK, posts)
 }

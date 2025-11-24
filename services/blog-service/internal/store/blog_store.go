@@ -235,6 +235,17 @@ func (s *Store) IsPostLikedByUser(userID, blogID int64) (bool, error) {
 	return count > 0, nil
 }
 
+// GetCommentsCountForPost vraća broj komentara za post
+func (s *Store) GetCommentsCountForPost(blogID int64) (int, error) {
+	query := `SELECT COUNT(*) FROM blog_comments WHERE blog_id = ?`
+	var count int
+	err := s.db.QueryRow(query, blogID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get comments count: %w", err)
+	}
+	return count, nil
+}
+
 func (s *Store) CreateBlogImages(blogID int64, imageURLs []string) error {
 	if len(imageURLs) == 0 {
 		return nil

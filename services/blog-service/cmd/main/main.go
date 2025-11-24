@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Build version 4 - comments count added
 func main() {
 	// Čitanje environment varijabli
 	port := getEnv("PORT", "8002")
@@ -48,8 +49,8 @@ func main() {
 	// Health check endpoint
 	r.GET("/health", blogHandler.Health)
 
-	// Public routes
-	r.GET("/posts", blogHandler.GetAllBlogPosts)
+	// Public routes (sa opcional auth za isLiked)
+	r.GET("/posts", handler.OptionalAuthMiddleware(), blogHandler.GetAllBlogPosts)
 	r.GET("/posts/:id", blogHandler.GetBlogPost)
 
 	// Protected routes

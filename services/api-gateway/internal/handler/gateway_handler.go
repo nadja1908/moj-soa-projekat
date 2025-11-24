@@ -106,6 +106,7 @@ func (h *GatewayHandler) ProxyToBlog(c *gin.Context) {
 func (h *GatewayHandler) ProxyToFollower(c *gin.Context) {
 	log.Println("------------------------------------------------")
 	log.Println("[ProxyToFollower] ORIGINAL PATH:", c.Request.URL.Path)
+	log.Println("[ProxyToFollower] METHOD:", c.Request.Method)
 	log.Println("[ProxyToFollower] AUTH FROM CLIENT:", c.GetHeader("Authorization"))
 
 	original := c.Request.URL.Path
@@ -114,6 +115,7 @@ func (h *GatewayHandler) ProxyToFollower(c *gin.Context) {
 		path = "/"
 	}
 
+	// Follower service očekuje /api/follower prefix
 	finalURL := h.followerServiceURL + "/api/follower" + path
 	log.Println("[ProxyToFollower] FINAL URL:", finalURL)
 

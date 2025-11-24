@@ -32,8 +32,8 @@ public class Neo4jService : IDisposable
             var result = await session.ExecuteWriteAsync(async tx =>
             {
                 var query = @"
-                    MERGE (follower:User {id: $followerId})
-                    MERGE (following:User {id: $followingId})
+                    MERGE (follower:User {userId: $followerId})
+                    MERGE (following:User {userId: $followingId})
                     MERGE (follower)-[r:FOLLOWS]->(following)
                     RETURN r";
 
@@ -57,20 +57,22 @@ public class Neo4jService : IDisposable
         await using var session = _driver.AsyncSession();
         try
         {
-            var result = await session.ExecuteWriteAsync(async tx =>
+            var deletedCount = await session.ExecuteWriteAsync(async tx =>
             {
                 var query = @"
-                    MATCH (follower:User {id: $followerId})-[r:FOLLOWS]->(following:User {id: $followingId})
+                    MATCH (follower:User {userId: $followerId})-[r:FOLLOWS]->(following:User {userId: $followingId})
                     DELETE r
-                    RETURN count(r) as deleted";
+                    RETURN count(*) as deletedCount";
 
                 var cursor = await tx.RunAsync(query, new { followerId, followingId });
-                var record = await cursor.SingleAsync();
-                return record["deleted"].As<int>() > 0;
+                var summary = await cursor.ConsumeAsync();
+                return summary.Counters.RelationshipsDeleted;
             });
 
-            _logger.LogInformation("User {FollowerId} unfollowed user {FollowingId}", followerId, followingId);
-            return result;
+            var success = deletedCount > 0;
+            _logger.LogInformation("User {FollowerId} unfollowed user {FollowingId}, deleted {Count} relationships, success: {Result}", 
+                followerId, followingId, deletedCount, success);
+            return success;
         }
         catch (Exception ex)
         {
@@ -87,8 +89,8 @@ public class Neo4jService : IDisposable
             var result = await session.ExecuteReadAsync(async tx =>
             {
                 var query = @"
-                    MATCH (follower:User {id: $followerId})-[:FOLLOWS]->(following:User {id: $followingId})
-                    RETURN count(*) > 0 as isFollowing";
+                    MATCH (follower:User {userId: $followerId})-[:FOLLOWS]->(following:User {userId: $followingId})
+                    RETURN COUNT(*) > 0 as isFollowing";
 
                 var cursor = await tx.RunAsync(query, new { followerId, followingId });
                 var record = await cursor.SingleAsync();
@@ -112,8 +114,8 @@ public class Neo4jService : IDisposable
             var followers = await session.ExecuteReadAsync(async tx =>
             {
                 var query = @"
-                    MATCH (follower:User)-[:FOLLOWS]->(user:User {id: $userId})
-                    RETURN follower.id as followerId";
+                    MATCH (follower:User)-[:FOLLOWS]->(user:User {userId: $userId})
+                    RETURN follower.userId as followerId";
 
                 var cursor = await tx.RunAsync(query, new { userId });
                 var records = await cursor.ToListAsync();
@@ -137,8 +139,8 @@ public class Neo4jService : IDisposable
             var following = await session.ExecuteReadAsync(async tx =>
             {
                 var query = @"
-                    MATCH (user:User {id: $userId})-[:FOLLOWS]->(following:User)
-                    RETURN following.id as followingId";
+                    MATCH (user:User {userId: $userId})-[:FOLLOWS]->(following:User)
+                    RETURN following.userId as followingId";
 
                 var cursor = await tx.RunAsync(query, new { userId });
                 var records = await cursor.ToListAsync();

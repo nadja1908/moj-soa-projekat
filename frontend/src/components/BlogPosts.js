@@ -81,8 +81,11 @@ const BlogPosts = () => {
         });
         console.log('Filtered posts count:', filteredPosts.length);
         setPosts(filteredPosts);
+        // Učitaj broj komentara za sve postove
+        await fetchAllCommentsCount(filteredPosts);
       } else {
         setPosts(allPosts);
+        await fetchAllCommentsCount(allPosts);
       }
     } catch (error) {
       console.error('Error fetching posts:', error);
@@ -103,7 +106,7 @@ const BlogPosts = () => {
 
     try {
       await blogApi.post(`/posts/${postId}/like`);
-      fetchPosts();
+      fetchPosts(followingUsers);
     } catch (error) {
       console.error('Error liking post:', error);
       setError('Greška pri označavanju posta');
@@ -117,7 +120,7 @@ const BlogPosts = () => {
 
     try {
       await blogApi.delete(`/posts/${postId}/like`);
-      fetchPosts();
+      fetchPosts(followingUsers);
     } catch (error) {
       console.error('Error unliking post:', error);
       setError('Greška pri uklanjanju označavanja');
@@ -126,23 +129,33 @@ const BlogPosts = () => {
 
   const handleFollow = async (userId) => {
     try {
-      await followerApi.post('/follow', { followingId: userId });
-      await fetchFollowingUsers();
+      console.log('Following user:', userId);
+      const response = await followerApi.post('/follow', { followingId: userId });
+      console.log('Follow response:', response);
+      const updatedFollowing = await fetchFollowingUsers();
+      await fetchPosts(updatedFollowing);
       setError('');
     } catch (error) {
       console.error('Error following user:', error);
-      setError('Greška pri praćenju korisnika');
+      console.error('Error details:', error.response?.data);
+      setError(error.response?.data?.message || 'Greška pri praćenju korisnika');
     }
   };
 
   const handleUnfollow = async (userId) => {
     try {
-      await followerApi.delete(`/unfollow/${userId}`);
-      await fetchFollowingUsers();
+      console.log('Unfollowing user:', userId);
+      const response = await followerApi.delete(`/unfollow/${userId}`);
+      console.log('Unfollow response:', response);
+      const updatedFollowing = await fetchFollowingUsers();
+      console.log('Updated following:', Array.from(updatedFollowing));
+      await fetchPosts(updatedFollowing);
       setError('');
     } catch (error) {
       console.error('Error unfollowing user:', error);
-      setError('Greška pri otpraćivanju korisnika');
+      console.error('Error response:', error.response);
+      console.error('Error details:', error.response?.data);
+      setError(error.response?.data?.message || 'Greška pri otpraćivanju korisnika');
     }
   };
 
@@ -155,6 +168,21 @@ const BlogPosts = () => {
     } catch (error) {
       console.error('Error fetching comments:', error);
     }
+  };
+
+  const fetchAllCommentsCount = async (postsArray) => {
+    const commentsData = {};
+    for (const post of postsArray) {
+      try {
+        const response = await blogApi.get(`/posts/${post.id}`);
+        if (response.data && response.data.comments) {
+          commentsData[post.id] = response.data.comments;
+        }
+      } catch (error) {
+        console.error(`Error fetching comments for post ${post.id}:`, error);
+      }
+    }
+    setComments(commentsData);
   };
 
   const handleAddComment = async (postId) => {
@@ -382,12 +410,22 @@ const BlogPosts = () => {
                                 title={
                                   user
                                     ? post.isLiked
-                                      ? 'Ukloni označavanje'
-                                      : 'Označi post'
-                                    : 'Prijavite se da označite post'
+                                      ? 'Ukloni lajk'
+                                      : 'Lajkuj post'
+                                    : 'Prijavite se da lajkujete post'
                                 }
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: user ? 'pointer' : 'not-allowed',
+                                  fontSize: '1.5rem',
+                                  padding: 0,
+                                  transition: 'transform 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.2)'}
+                                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                               >
-                                ❤️
+                                {post.isLiked ? '❤️' : '🤍'}
                               </button>
                               <small className="text-muted">
                                 {post.likesCount || 0}

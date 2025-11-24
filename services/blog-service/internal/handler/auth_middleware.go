@@ -64,3 +64,60 @@ func AuthMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// OptionalAuthMiddleware pokušava validirati token ako postoji, ali ne abortuje ako ne postoji
+func OptionalAuthMiddleware() gin.HandlerFunc {
+	authServiceURL := os.Getenv("AUTH_SERVICE_URL")
+	if authServiceURL == "" {
+		authServiceURL = "http://auth-service:8003"
+	}
+
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			// Nema tokena, nastavi dalje bez userID
+			c.Next()
+			return
+		}
+
+		// Pozovi Auth servis za validaciju
+		req, err := http.NewRequest("GET", authServiceURL+"/validate", nil)
+		if err != nil {
+			// Ne abortuj, samo nastavi
+			c.Next()
+			return
+		}
+
+		req.Header.Set("Authorization", authHeader)
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			// Ne abortuj, samo nastavi
+			c.Next()
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			// Nevažeći token, ali nastavi dalje
+			c.Next()
+			return
+		}
+
+		var authResp struct {
+			UserID int64  `json:"userId"`
+			Role   string `json:"role"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&authResp); err != nil {
+			// Ne abortuj, samo nastavi
+			c.Next()
+			return
+		}
+
+		// Postavi user podatke u kontekst
+		c.Set("userID", authResp.UserID)
+		c.Set("userRole", authResp.Role)
+		c.Next()
+	}
+}
