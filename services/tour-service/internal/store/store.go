@@ -103,3 +103,8 @@ func (s *Store) Close() {
 		s.db.Close()
 	}
 }
+
+// ➜ DODATO: da main može da uzme *sql.DB
+func (s *Store) GetDB() *sql.DB {
+	return s.db
+}

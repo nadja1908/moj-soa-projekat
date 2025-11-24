@@ -3,6 +3,8 @@ import { Card, Button, Table, Badge, Alert, Spinner, Row, Col } from 'react-boot
 import { tourApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import TourDetailsModal from './TourDetailsModal';
+import TourReviewsModal from './TourReviewsModal';
+
 
 const TouristTours = () => {
   const [tours, setTours] = useState([]);
@@ -12,6 +14,9 @@ const TouristTours = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedTourId, setSelectedTourId] = useState(null);
   const { user } = useAuth();
+  const [showReviewsModal, setShowReviewsModal] = useState(false);
+const [selectedTourForReviews, setSelectedTourForReviews] = useState(null);
+
 
   const fetchAvailableTours = useCallback(async () => {
     try {
@@ -182,10 +187,10 @@ const TouristTours = () => {
   };
 
   const handleReviews = (tour) => {
-    // TODO: Implement tour reviews functionality
-    console.log('View reviews for tour:', tour);
-    alert(`Prikaz recenzija za turu "${tour.name}" - funkcionalnost će biti implementirana uskoro!`);
-  };
+  setSelectedTourForReviews(tour);
+  setShowReviewsModal(true);
+};
+
 
   const handleViewDetails = (tour) => {
     setSelectedTourId(tour.id);
@@ -316,6 +321,16 @@ const TouristTours = () => {
         onHide={() => setShowDetailsModal(false)}
         tourId={selectedTourId}
       />
+      {/* Modal za recenzije */}
+<TourReviewsModal
+  show={showReviewsModal}
+  onHide={() => setShowReviewsModal(false)}
+  tour={selectedTourForReviews}
+  user={user}
+/>
+
+
+
     </div>
   );
 };
