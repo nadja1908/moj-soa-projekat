@@ -168,6 +168,11 @@ const KeyPointsMap = React.memo(({ show, onHide, tourId, tourName, onTourUpdate 
       
       // Refresh key points
       await fetchKeyPoints();
+      
+      // Pozovi callback da se ažuriraju vremena u TourManagement
+      if (onTourUpdate) {
+        onTourUpdate();
+      }
     } catch (err) {
       console.error('Error adding key point:', err);
       setError(err.response?.data?.error || 'Greška pri dodavanju ključne tačke');
@@ -185,9 +190,14 @@ const KeyPointsMap = React.memo(({ show, onHide, tourId, tourName, onTourUpdate 
       setLoading(true);
       await keypointsApi.delete(`/${keyPointId}`);
       await fetchKeyPoints();
+      
+      // Pozovi callback da se ažuriraju vremena u TourManagement
+      if (onTourUpdate) {
+        onTourUpdate();
+      }
     } catch (err) {
       console.error('Error deleting key point:', err);
-      setError('Greška pri brisanju ključne tačke');
+      setError('Ne može se obrisati tačka čija je tura bila objavljena');
     } finally {
       setLoading(false);
     }
@@ -236,6 +246,11 @@ const KeyPointsMap = React.memo(({ show, onHide, tourId, tourName, onTourUpdate 
       
       // Refresh key points
       await fetchKeyPoints();
+      
+      // Pozovi callback da se ažuriraju vremena u TourManagement
+      if (onTourUpdate) {
+        onTourUpdate();
+      }
     } catch (err) {
       console.error('❌ Error updating key point:', err);
       console.error('❌ Error details:', err.response?.data);
