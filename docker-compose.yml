@@ -33,6 +33,8 @@ services:
       - BLOG_SERVICE_URL=http://blog-service:8002
       - TOUR_SERVICE_URL=http://tour-service:8004
       - PURCHASE_SERVICE_URL=http://purchase-service:8005
+          - TOUR_GRPC_ADDR=tour-service:50051     # OVO DODATI
+
     networks:
       - app-network
     healthcheck:

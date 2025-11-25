@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package tour;
+
+option go_package = "tour-service/proto;tourpb";
+
+// ---------- Messages za /published ----------
+
+message GetPublishedToursRequest {}
+
+message TourListItem {
+  int64 id = 1;
+  string name = 2;
+  string description = 3;
+  string difficulty = 4;
+  string status = 5;
+  double price = 6;
+  double distance_km = 7;
+  string published_at = 8;
+  repeated string tags = 9;
+}
+
+message GetPublishedToursResponse {
+  repeated TourListItem tours = 1;
+}
+
+// ---------- Messages za /public/{id} ----------
+
+message GetPublicTourRequest {
+  int64 id = 1;
+}
+
+message TourDuration {
+  string transport_type = 1;  // WALKING / CYCLING / CAR / BUS
+  int32 duration_minutes = 2;
+}
+
+message KeyPoint {
+  string name = 1;
+  string description = 2;
+  double latitude = 3;
+  double longitude = 4;
+  string image_url = 5;
+}
+
+message PublicTour {
+  int64 id = 1;
+  string name = 2;
+  string description = 3;
+  string difficulty = 4;
+  string status = 5;
+  double price = 6;
+  double distance_km = 7;
+  string published_at = 8;
+  repeated string tags = 9;
+  repeated TourDuration durations = 10;
+  repeated KeyPoint key_points = 11;
+}
+
+message GetPublicTourResponse {
+  PublicTour tour = 1;
+}
+
+// ---------- Service ----------
+
+service TourService {
+  rpc GetPublishedTours (GetPublishedToursRequest) returns (GetPublishedToursResponse);
+  rpc GetPublicTour (GetPublicTourRequest) returns (GetPublicTourResponse);
+}

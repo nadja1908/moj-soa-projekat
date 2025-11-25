@@ -1,4 +1,6 @@
-FROM golang:1.21-alpine AS builder
+FROM golang:1.25.4-alpine AS builder   
+
+ENV GO111MODULE=on     
 
 WORKDIR /app
 
@@ -14,6 +16,7 @@ COPY . .
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/main
 
+
 FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates
@@ -24,5 +27,5 @@ WORKDIR /root/
 COPY --from=builder /app/main .
 
 EXPOSE 8004
-
+EXPOSE 50051   
 CMD ["./main"]

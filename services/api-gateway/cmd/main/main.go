@@ -72,7 +72,13 @@ func main() {
 
 	// Initialize handlers - include all services
 	log.Printf("DEBUG: Creating gateway handler with tour URL: %s", tourServiceURL)
-	gatewayHandler := handler.NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, tourServiceURL, purchaseServiceURL)
+	gatewayHandler := handler.NewGatewayHandler(
+		authServiceURL,
+		stakeholdersServiceURL,
+		blogServiceURL,
+		tourServiceURL,
+		purchaseServiceURL,
+	)
 	log.Printf("DEBUG: Gateway handler created successfully!")
 
 	// Initialize middleware
@@ -140,16 +146,17 @@ func main() {
 		admin.GET("/posts", gatewayHandler.ProxyToBlog)
 	}
 
-	// Tour routes (some public, some auth required)
+	// Tour routes *******************************************************************************
 	log.Printf("DEBUG: About to configure tour routes...")
 	tours := router.Group("/api/tours")
 	{
-		// Public routes
-		tours.GET("/published", gatewayHandler.ProxyToTours)
-		tours.GET("/public/:id", gatewayHandler.ProxyToTours)
+		// PUBLIC – OVO DVA IDU PREKO RPC-A
+		tours.GET("/published", gatewayHandler.GetPublishedToursRPC)
+		tours.GET("/public/:id", gatewayHandler.GetPublicTourRPC)
 	}
+	// ******************************************************************************************************
 
-	// Protected tour routes (auth required)
+	// Protected tour routes (auth required) – ostaju preko HTTP proxy-ja
 	toursProtected := router.Group("/api/tours")
 	toursProtected.Use(authMiddleware.ValidateToken())
 	{

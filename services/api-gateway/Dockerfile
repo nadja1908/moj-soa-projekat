@@ -1,4 +1,5 @@
-FROM golang:1.23-alpine AS builder
+FROM golang:1.25.4-alpine AS builder
+
 ENV GOPROXY=https://proxy.golang.org,direct
 ENV GOSUMDB=off
 
@@ -20,5 +21,6 @@ WORKDIR /root/
 COPY --from=builder /app/main .
 
 EXPOSE 8000
+
 
 CMD ["./main"]

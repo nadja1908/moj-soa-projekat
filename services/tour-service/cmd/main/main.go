@@ -2,14 +2,17 @@ package main
 
 import (
 	"log"
+	"net"
 	"os"
 	"strconv"
 
 	"tour-service/internal/handler"
 	"tour-service/internal/store"
+	tourpb "tour-service/proto"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -17,6 +20,11 @@ func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8004"
+	}
+
+	grpcPort := os.Getenv("GRPC_PORT")
+	if grpcPort == "" {
+		grpcPort = "50051"
 	}
 
 	dbUser := os.Getenv("DB_USER")
@@ -46,6 +54,9 @@ func main() {
 	keyPointHandler := handler.NewKeyPointHandler(keyPointStore)
 	durationHandler := handler.NewTourDurationHandler(durationStore)
 	simulatorHandler := handler.NewTourSimulatorHandler(simulatorStore)
+
+	// *** NOVO — RPC server za TourService ***
+	go startGRPCServer(tourStore, grpcPort)
 
 	// *** NOVO — ReviewHandler ***
 	reviewHandler := handler.NewReviewHandler(reviewStore)
@@ -136,6 +147,26 @@ func main() {
 	// Protected:
 	r.POST("/api/reviews", authMiddleware, reviewHandler.CreateReview)
 
-	log.Printf("Tour service starting on port %s", port)
+	log.Printf("Tour service HTTP starting on port %s", port)
+	log.Printf("Tour service gRPC starting on port %s", grpcPort)
 	log.Fatal(r.Run(":" + port))
+}
+
+// startGRPCServer pokreće gRPC server za TourService
+func startGRPCServer(tourStore *store.Store, port string) {
+	lis, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		log.Fatalf("failed to listen on gRPC port %s: %v", port, err)
+	}
+
+	grpcServer := grpc.NewServer()
+	rpcServer := handler.NewTourRPCServer(tourStore)
+
+	tourpb.RegisterTourServiceServer(grpcServer, rpcServer)
+
+	log.Printf("gRPC TourService listening on :%s", port)
+
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("failed to serve gRPC: %v", err)
+	}
 }

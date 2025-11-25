@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package tour;
+
+option go_package = "api-gateway/proto;tourpb";
+
+service TourService {
+  rpc GetPublishedTours (GetPublishedToursRequest) returns (GetPublishedToursResponse);
+  rpc GetPublicTour (GetPublicTourRequest) returns (GetPublicTourResponse);
+}
+
+message GetPublishedToursRequest {}
+
+message GetPublishedToursResponse {
+  repeated TourListItem tours = 1;
+}
+
+message GetPublicTourRequest {
+  int64 id = 1;
+}
+
+message GetPublicTourResponse {
+  TourDetails tour = 1;
+}
+
+message TourListItem {
+  int64 id = 1;
+  string name = 2;
+  string description = 3;
+  string difficulty = 4;
+  string status = 5;
+  double price = 6;
+  double distanceKm = 7;
+  string publishedAt = 8;
+  repeated string tags = 9;
+}
+
+message TourDetails {
+  int64 id = 1;
+  string name = 2;
+  string description = 3;
+  string difficulty = 4;
+  string status = 5;
+  double price = 6;
+  double distanceKm = 7;
+  string publishedAt = 8;
+  repeated string tags = 9;
+}
