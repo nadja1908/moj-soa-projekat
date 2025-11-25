@@ -146,8 +146,6 @@ blogApi.interceptors.response.use(
 const stakeholdersApi = usersApi;
 
 export default authApi;
-export { authApi, usersApi, blogApi, adminApi, stakeholdersApi, tourApi, keypointsApi, followerApi };
-
-export { authApi, usersApi, blogApi, adminApi, stakeholdersApi, tourApi, keypointsApi, reviewsApi,purchaseApi };
+export { authApi, usersApi, blogApi, adminApi, stakeholdersApi, tourApi, keypointsApi, followerApi, reviewsApi, purchaseApi };
 
 

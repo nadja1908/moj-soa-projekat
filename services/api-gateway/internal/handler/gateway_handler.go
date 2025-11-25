@@ -18,12 +18,10 @@ type GatewayHandler struct {
 	blogServiceURL         string
 	tourServiceURL         string
 	followerServiceURL     string
-}
-
-func NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, tourServiceURL, followerServiceURL string, purchaseURL string) *GatewayHandler {
 	purchaseServiceURL     string
 }
 
+func NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, tourServiceURL, followerServiceURL, purchaseURL string) *GatewayHandler {
 	return &GatewayHandler{
 		authServiceURL:         authServiceURL,
 		stakeholdersServiceURL: stakeholdersServiceURL,
