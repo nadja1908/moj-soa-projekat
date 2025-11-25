@@ -302,7 +302,7 @@ const [selectedTourForReviews, setSelectedTourForReviews] = useState(null);
                             </div>
                             
                             <div className="mb-2">
-                              <strong>Vremena: </strong>
+                              <strong>Vreme: </strong>
                               {renderDuration(tour)}
                             </div>
                             
