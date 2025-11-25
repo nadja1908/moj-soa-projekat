@@ -43,6 +43,11 @@ func main() {
 	followerServiceURL := os.Getenv("FOLLOWER_SERVICE_URL")
 	if followerServiceURL == "" {
 		followerServiceURL = "http://follower-service:8080"
+	purchaseServiceURL := os.Getenv("PURCHASE_SERVICE_URL")
+	log.Printf("DEBUG: Read PURCHASE_SERVICE_URL from env: '%s'", purchaseServiceURL)
+	if purchaseServiceURL == "" {
+		purchaseServiceURL = "http://purchase-service:8005"
+		log.Printf("DEBUG: Using default purchase service URL: '%s'", purchaseServiceURL)
 	}
 
 	// Initialize Gin router
@@ -70,7 +75,8 @@ func main() {
 
 	// Initialize handlers - include all services
 	log.Printf("DEBUG: Creating gateway handler with tour URL: %s", tourServiceURL)
-	gatewayHandler := handler.NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, tourServiceURL, followerServiceURL)
+	gatewayHandler := handler.NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, tourServiceURL, followerServiceURL, purchaseServiceURL)
+	
 	log.Printf("DEBUG: Gateway handler created successfully!")
 
 	// Initialize middleware
@@ -138,6 +144,17 @@ func main() {
 		follower.GET("/recommendations", gatewayHandler.GetRecommendationsWithDetails)
 		follower.GET("/health", gatewayHandler.ProxyToFollower)
 	}
+	log.Printf("DEBUG: About to configure purchase/cart routes...")
+	cart := router.Group("/api/purchase")
+	cart.Use(authMiddleware.ValidateToken())
+	{
+		cart.GET("", gatewayHandler.ProxyToPurchase)
+		cart.GET("/", gatewayHandler.ProxyToPurchase)
+		cart.POST("/add", gatewayHandler.ProxyToPurchase)
+		cart.DELETE("/:tourId", gatewayHandler.ProxyToPurchase)
+		cart.POST("/checkout", gatewayHandler.ProxyToPurchase)
+	}
+	log.Printf("DEBUG: Purchase routes configured successfully!")
 
 	// Admin routes (auth required)
 	admin := router.Group("/api/admin")
@@ -190,6 +207,25 @@ func main() {
 	}
 	log.Printf("DEBUG: Keypoints routes configured successfully!")
 
+	// Review routes (Public and Protected)
+	log.Printf("DEBUG: About to configure review routes...")
+
+	reviews := router.Group("/api/reviews")
+	{
+		// Public GET
+		reviews.GET("/tour/:tourId", gatewayHandler.ProxyToTours)
+	}
+
+	reviewsProtected := router.Group("/api/reviews")
+	reviewsProtected.Use(authMiddleware.ValidateToken())
+	{
+		// Protected POST
+		reviewsProtected.POST("", gatewayHandler.ProxyToTours)
+		reviewsProtected.POST("/", gatewayHandler.ProxyToTours)
+	}
+
+	log.Printf("DEBUG: Review routes configured successfully!")
+
 	log.Printf("API Gateway starting on port %s", port)
 	log.Printf("Auth Service URL: %s", authServiceURL)
 	log.Printf("Stakeholders Service URL: %s", stakeholdersServiceURL)
@@ -197,6 +233,7 @@ func main() {
 	log.Printf("Tour Service URL: %s", tourServiceURL)
 	log.Printf("Follower Service URL: %s", followerServiceURL)
 	log.Printf("Tour routes configured successfully!")
+	log.Printf("Purchase Service URL: %s", purchaseServiceURL)
 
 	if err := router.Run(":" + port); err != nil {
 		log.Fatal("Failed to start API Gateway:", err)

@@ -1,5 +1,4 @@
-import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, BrowserRouter } from 'react-router-dom'; 
 import NavigationBar from './components/NavigationBar';
 import Login from './components/Login';
 import Register from './components/Register';
@@ -12,16 +11,18 @@ import MyBlogPosts from './components/MyBlogPosts';
 import Community from './components/Community';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProfilePage from './components/ProfilePage';
+import CartPage from './components/CartPage';
+import { CartProvider } from './components/CartContext'; 
 
 function AppContent() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
+     return (
       <div className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </div>
+         <div className="spinner-border text-primary" role="status">
+           <span className="visually-hidden">Loading...</span>
+         </div>
       </div>
     );
   }
@@ -30,40 +31,46 @@ function AppContent() {
     if (!user) return "/login";
     // Svi korisnici idu na blog kao početnu stranicu
     return "/posts";
-  };
+   };
 
-  return (
+   return (
     <div className="min-h-screen bg-white">
       <NavigationBar />
-      <div className="main-container bg-white">
+       <div className="main-container bg-white">
         <Routes>
           <Route 
             path="/login" 
             element={!user ? <Login /> : <Navigate to={getRedirectPath(user)} />} 
           />
-          <Route 
+           <Route 
             path="/register" 
             element={!user ? <Register /> : <Navigate to={getRedirectPath(user)} />} 
           />
-          
+
           {/* Administrator rute */}
           <Route 
-            path="/admin" 
-            element={user && user.role === 'administrator' ? <AdminPanel /> : <Navigate to="/login" />} 
+             path="/admin" 
+             element={user && user.role === 'administrator' ? <AdminPanel /> : <Navigate to="/login" />} 
           />
-          
-          {/* Guide rute */}
-          <Route 
+
+           {/* Guide rute */}
+           <Route 
             path="/guide/tours" 
             element={user && user.role === 'guide' ? <TourManagement /> : <Navigate to="/login" />} 
           />
-          
+
           {/* Tourist rute */}
           <Route 
             path="/tours" 
             element={user && user.role === 'tourist' ? <TouristTours /> : <Navigate to="/login" />} 
           />
-          
+
+          {/* RUTA ZA KORPU - DOSTUPNA SAMO TURISTI */}
+          <Route 
+            path="/purchase" 
+            element={user && user.role === 'tourist' ? <CartPage /> : <Navigate to="/login" />} 
+          />
+ 
           {/* Blog rute - dostupne svim korisnicima */}
           <Route 
             path="/posts" 
@@ -76,6 +83,7 @@ function AppContent() {
             element={user ? <MyBlogPosts /> : <Navigate to="/login" />} 
           />
           
+
           {/* Create Post - za sve autentifikovane korisnike */}
           <Route 
             path="/create-post" 
@@ -88,13 +96,14 @@ function AppContent() {
             element={user ? <Community /> : <Navigate to="/login" />} 
           />
           
+
           <Route 
             path="/" 
             element={<Navigate to={getRedirectPath(user)} />} 
           />
-          
+ 
           {/* Catch-all route za sve nepoznate putanje */}
-          <Route 
+           <Route 
             path="*" 
             element={<Navigate to={getRedirectPath(user)} />} 
           />
@@ -103,18 +112,20 @@ function AppContent() {
             path="/profile" 
             element={user ? <ProfilePage /> : <Navigate to="/login" />} 
           />
-        </Routes>
+         </Routes>
       </div>
     </div>
-  );
+   );
 }
 
 function App() {
-  return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
-  );
+   return (
+       <AuthProvider>
+         <CartProvider>
+           <AppContent />
+        </CartProvider>
+       </AuthProvider>
+   );
 }
 
 export default App;

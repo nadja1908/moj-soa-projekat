@@ -2,9 +2,11 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import TravelLogo from './TravelLogo';
+import { useCart } from './CartContext';
 
 const NavigationBar = () => {
   const { user, logout } = useAuth();
+  const { cartItemCount } = useCart();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -120,6 +122,18 @@ const NavigationBar = () => {
                 className="text-gray-700 hover:text-orange-600 font-medium transition-colors duration-200 text-sm xl:text-base flex items-center"
               >
                 🎒 Dostupne ture
+              </Link>
+              <Link
+                to="/purchase"
+                className="relative text-gray-700 hover:text-orange-600 font-medium transition-colors duration-200 text-sm xl:text-base flex items-center"
+                title="Moja korpa"
+              >
+                🛒 Korpa
+                {cartItemCount > 0 && (
+                  <span className="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 bg-rose-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                    {cartItemCount}
+                  </span>
+                )}
               </Link>
             </>
           );

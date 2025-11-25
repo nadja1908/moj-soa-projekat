@@ -20,19 +20,20 @@ type GatewayHandler struct {
 	followerServiceURL     string
 }
 
-func NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, tourServiceURL, followerServiceURL string) *GatewayHandler {
+func NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, tourServiceURL, followerServiceURL string, purchaseURL string) *GatewayHandler {
+	purchaseServiceURL     string
+}
+
 	return &GatewayHandler{
 		authServiceURL:         authServiceURL,
 		stakeholdersServiceURL: stakeholdersServiceURL,
 		blogServiceURL:         blogServiceURL,
 		tourServiceURL:         tourServiceURL,
 		followerServiceURL:     followerServiceURL,
+		purchaseServiceURL:     purchaseURL,
 	}
 }
 
-// ////////////////////////
-// AUTH SERVICE PROXY
-// ////////////////////////
 func (h *GatewayHandler) ProxyToAuth(c *gin.Context) {
 	path := strings.TrimPrefix(c.Request.URL.Path, "/api/auth")
 	if path == "" {
@@ -42,6 +43,25 @@ func (h *GatewayHandler) ProxyToAuth(c *gin.Context) {
 	log.Printf("DEBUG: ProxyToAuth - Original path: %s, Final path: %s", c.Request.URL.Path, path)
 	log.Printf("DEBUG: ProxyToAuth - Target URL: %s", h.authServiceURL+path)
 	h.proxyRequest(c, h.authServiceURL+path)
+}
+
+func (h *GatewayHandler) ProxyToPurchase(c *gin.Context) {
+	original := c.Request.URL.Path
+	path := original
+
+	if path == "" {
+		path = "/"
+	}
+	if strings.HasPrefix(original, "/api/purchase") {
+		path = strings.TrimPrefix(original, "/api/purchase")
+		if path == "" {
+			path = "/"
+		}
+	}
+
+	finalURL := h.purchaseServiceURL + "/purchase" + path
+	log.Println("[ProxyToPurchase] FINAL URL →", finalURL)
+	h.proxyRequest(c, finalURL)
 }
 
 // ////////////////////////

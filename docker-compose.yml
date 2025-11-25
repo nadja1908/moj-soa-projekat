@@ -33,6 +33,7 @@ services:
       - BLOG_SERVICE_URL=http://blog-service:8002
       - TOUR_SERVICE_URL=http://tour-service:8004
       - FOLLOWER_SERVICE_URL=http://follower-service:8080
+      - PURCHASE_SERVICE_URL=http://purchase-service:8005
     networks:
       - app-network
     healthcheck:
@@ -79,6 +80,7 @@ services:
       start_period: 30s
     depends_on:
       neo4j:
+      purchase-service:
         condition: service_healthy
 
   # 3. Stakeholders Servis
@@ -283,6 +285,60 @@ services:
       retries: 10
       start_period: 40s
 
+  purchase-db:
+    image: mongo:latest
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - purchase-data:/data/db
+    networks:
+      - app-network
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: user
+      MONGO_INITDB_ROOT_PASSWORD: password
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand({ ping: 1 })", "purchase-db:27017/admin", "-u", "user", "-p", "password"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+    # ... (Ostali servisi)
+
+    # 8. Purchase Servis
+  purchase-service:
+    build:
+      context: ./services/purchase-service
+      dockerfile: Dockerfile
+    ports:
+      - "8005:8005"
+    environment:
+      - PORT=8005
+      - SERVICE_NAME=PURCHASE-SERVICE
+      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka
+      - DB_HOST=purchase-db
+      - DB_PORT=27017
+      - DB_NAME=purchase_db
+      - DB_USER=user
+      - DB_PASS=password
+      - TOUR_SERVICE_URL=http://tour-service:8004
+    networks:
+      - app-network
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--timeout=10", "-O", "/dev/null", "http://localhost:8005/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      purchase-db:
+        condition: service_healthy
+      tour-service:
+        condition: service_healthy
+
 networks:
   app-network:
     driver: bridge
@@ -293,3 +349,4 @@ volumes:
   stakeholders-data:
   blog-data:
   tour-data:
+  purchase-data:

@@ -26,7 +26,9 @@ const TourDetailsModal = ({ show, onHide, tourId }) => {
       }
       
       const data = await response.json();
-      if (data.success) {
+      console.log('API Response:', data); // Debug log
+      
+      if (data.success && data.tour) {
         setTour(data.tour);
       } else {
         setError('Tura nije dostupna');
@@ -59,15 +61,22 @@ const TourDetailsModal = ({ show, onHide, tourId }) => {
     );
   };
 
-  const parseTagsFromString = (tagsString) => {
-    if (!tagsString) return [];
+const parseTagsFromString = (tags) => {
+  if (!tags) return [];
+
+  if (Array.isArray(tags)) return tags;
+
+  if (typeof tags === "string") {
     try {
-      const parsed = JSON.parse(tagsString);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (error) {
-      return tagsString.split(',').map(tag => tag.trim()).filter(tag => tag);
+      const parsed = JSON.parse(tags);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) {
+      return tags.split(',').map(t => t.trim());
     }
-  };
+  }
+
+  return [];
+};
 
   const renderTags = (tagsString) => {
     const tags = parseTagsFromString(tagsString);
@@ -110,7 +119,7 @@ const TourDetailsModal = ({ show, onHide, tourId }) => {
     <Modal show={show} onHide={onHide} size="lg">
       <Modal.Header closeButton>
         <Modal.Title>
-          {tour ? `🗺️ ${tour.tour.name}` : 'Detalji ture'}
+          {tour ? `🗺️ ${tour.name}` : 'Detalji ture'}
         </Modal.Title>
       </Modal.Header>
       
@@ -139,24 +148,24 @@ const TourDetailsModal = ({ show, onHide, tourId }) => {
               <Card.Body>
                 <div className="row">
                   <div className="col-md-6">
-                    <p><strong>Naziv:</strong> {tour.tour.name}</p>
-                    <p><strong>Težina:</strong> {getDifficultyBadge(tour.tour.difficulty)}</p>
-                    <p><strong>Cena:</strong> <span className="text-success fw-bold">€{tour.tour.price}</span></p>
+                    <p><strong>Naziv:</strong> {tour.name || 'N/A'}</p>
+                    <p><strong>Težina:</strong> {tour.difficulty ? getDifficultyBadge(tour.difficulty) : 'N/A'}</p>
+                    <p><strong>Cena:</strong> <span className="text-success fw-bold">€{tour.price || '0.00'}</span></p>
                   </div>
                   <div className="col-md-6">
-                    <p><strong>Rastojanje:</strong> {tour.tour.distanceKm || '0.0'} km</p>
+                    <p><strong>Rastojanje:</strong> {tour.distanceKm || '0.0'} km</p>
                     <p><strong>Status:</strong> <Badge bg="success">Objavljena</Badge></p>
                   </div>
                 </div>
                 
                 <div className="mt-3">
                   <p><strong>Opis:</strong></p>
-                  <p className="text-muted">{tour.tour.description || 'Nema opisa'}</p>
+                  <p className="text-muted">{tour.description || 'Nema opisa'}</p>
                 </div>
 
                 <div className="mt-3">
                   <p><strong>Tagovi:</strong></p>
-                  {renderTags(tour.tour.tags)}
+                  {renderTags(tour.tags)}
                 </div>
               </Card.Body>
             </Card>
