@@ -181,6 +181,25 @@ func main() {
 	}
 	log.Printf("DEBUG: Keypoints routes configured successfully!")
 
+	// Review routes (Public and Protected)
+	log.Printf("DEBUG: About to configure review routes...")
+
+	reviews := router.Group("/api/reviews")
+	{
+		// Public GET
+		reviews.GET("/tour/:tourId", gatewayHandler.ProxyToTours)
+	}
+
+	reviewsProtected := router.Group("/api/reviews")
+	reviewsProtected.Use(authMiddleware.ValidateToken())
+	{
+		// Protected POST
+		reviewsProtected.POST("", gatewayHandler.ProxyToTours)
+		reviewsProtected.POST("/", gatewayHandler.ProxyToTours)
+	}
+
+	log.Printf("DEBUG: Review routes configured successfully!")
+
 	log.Printf("API Gateway starting on port %s", port)
 	log.Printf("Auth Service URL: %s", authServiceURL)
 	log.Printf("Stakeholders Service URL: %s", stakeholdersServiceURL)
