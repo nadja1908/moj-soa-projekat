@@ -18,10 +18,10 @@ const Login = () => {
     setError('');
 
     const result = await login(formData.username, formData.password);
-    if (result.success) {
-      navigate('/dashboard');
+    if (result.success && result.user) {
+      navigate(result.user.role === 'administrator' ? '/admin' : '/');
     } else {
-      setError(result.error);
+      setError(result.error || 'Greška prilikom prijave');
     }
     setLoading(false);
   };

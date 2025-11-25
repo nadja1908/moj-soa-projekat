@@ -40,6 +40,8 @@ func main() {
 		AllowCredentials: true,
 	}))
 
+    r.Static("/images/", "./images")
+
 	// Health check endpoint
 	r.GET("/health", userHandler.Health)
 
@@ -58,6 +60,9 @@ func main() {
 		// Administrator endpoints
 		protected.GET("/users", userHandler.GetAllUsers)
 		protected.PUT("/users/:id/block", userHandler.BlockUser)
+		protected.PUT("/users/:id/unblock", userHandler.UnblockUser)
+		protected.GET("/profile", userHandler.GetMyProfile)
+		protected.PUT("/profile", userHandler.UpdateProfile)
 	}
 
 	log.Printf("Stakeholders service starting on port %s", port)

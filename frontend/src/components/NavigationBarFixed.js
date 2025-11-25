@@ -1,9 +1,11 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from './CartContext';
 
 const NavigationBar = () => {
   const { user, logout } = useAuth();
+  const { cartItemCount } = useCart();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -62,23 +64,31 @@ const NavigationBar = () => {
 
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center space-x-6">
-            <Link 
-              to="/posts" 
-              className="flex items-center space-x-1 text-gray-700 hover:text-indigo-600 transition-colors duration-200 font-medium"
-            >
-              <span>📰</span>
-              <span>Blog Postovi</span>
-            </Link>
-            
             {user && (
               <>
-                <Link 
-                  to="/dashboard" 
-                  className="flex items-center space-x-1 text-gray-700 hover:text-indigo-600 transition-colors duration-200 font-medium"
-                >
-                  <span>🏠</span>
-                  <span>Dashboard</span>
-                </Link>
+              {user.role === 'tourist' && (
+                  <Link 
+                    to="/purchase" 
+                      className="relative flex items-center space-x-1 text-gray-700 hover:text-indigo-600 transition-colors duration-200 font-medium"
+                   >
+                  <span>🛒</span>
+                    <span>Korpa</span>
+                    {cartItemCount > 0 && (
+                      <span className="absolute -top-3 -right-4 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                      {cartItemCount}
+                      </span>
+                     )}
+                  </Link>
+                  )}
+                {(user.role === 'guide' || user.role === 'tourist') && (
+                  <Link 
+                    to="/posts" 
+                    className="flex items-center space-x-1 text-gray-700 hover:text-indigo-600 transition-colors duration-200 font-medium"
+                  >
+                    <span>📰</span>
+                    <span>Blog</span>
+                  </Link>
+                )}
                 
                 <Link 
                   to="/create-post" 
@@ -93,7 +103,7 @@ const NavigationBar = () => {
                     to="/admin" 
                     className="flex items-center space-x-1 text-gray-700 hover:text-indigo-600 transition-colors duration-200 font-medium"
                   >
-                    <span>⚙️</span>
+                    <span>👑</span>
                     <span>Admin Panel</span>
                   </Link>
                 )}
@@ -112,7 +122,9 @@ const NavigationBar = () => {
                 
                 {/* User Info */}
                 <div className="hidden md:block">
-                  <div className="text-sm font-semibold text-gray-900">{user.username}</div>
+                  <div className="text-sm font-semibold text-gray-900">
+                    <Link to="/profile">{user.username}</Link>
+                  </div>
                   <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${getRoleBadgeStyle(user.role)}`}>
                     <span className="mr-1">{getRoleIcon(user.role)}</span>
                     {getRoleDisplayName(user.role)}

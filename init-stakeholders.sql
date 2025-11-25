@@ -24,10 +24,38 @@ CREATE TABLE IF NOT EXISTS profiles (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Ubacivanje test administratora
+-- Ubacivanje test administratora i vodiča
 INSERT IGNORE INTO users (username, password, email, role) VALUES 
-('admin', '$2a$10$zwx73C.axL2CyPD1R55cVO7gSVq48I9I31E0qnxD8dQuTo474a0Hm', 'admin@example.com', 'administrator');
+('admin', '$2a$10$zwx73C.axL2CyPD1R55cVO7gSVq48I9I31E0qnxD8dQuTo474a0Hm', 'admin@example.com', 'administrator'),
+('marko_vodic', '$2a$10$zwx73C.axL2CyPD1R55cVO7gSVq48I9I31E0qnxD8dQuTo474a0Hm', 'marko@example.com', 'guide');
 -- Lozinka je "password123" - hashirana sa bcrypt
+
+INSERT IGNORE INTO profiles (user_id, first_name, last_name, profile_image_url, biography, motto)
+VALUES (
+    2,
+    'Marko',
+    'Marković',
+    'http://localhost:8001/images/marko_vodic.png',
+    'Iskusan vodič specijalizovan za planinske ture, hiking i pešačenje. Voli prirodu, avanturu i deljenje lokalnih legendi.',
+    'Putovanje je jedino što kupujemo, a čini nas bogatijima.'
+);
+
+INSERT IGNORE INTO users (username, password, email, role)
+VALUES ('pera_turista',
+        '$2a$10$zwx73C.axL2CyPD1R55cVO7gSVq48I9I31E0qnxD8dQuTo474a0Hm',
+        'pera@example.com',
+        'tourist');
+
+INSERT IGNORE INTO profiles (user_id, first_name, last_name, profile_image_url, biography, motto)
+VALUES (
+    3,
+    'Pera',
+    'Perić',
+    'http://localhost:8001/images/pera_turista.png',
+    'Zaljubljenik u putovanja, posebno u obilaske istorijskih mesta i muzeja.',
+    'Svet je knjiga — ko ne putuje, čita samo jednu stranu.'
+);
+
 
 -- Kreiranje indeksa za performanse
 CREATE INDEX idx_users_username ON users(username);

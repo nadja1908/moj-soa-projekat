@@ -8,3 +8,7 @@ vendor/
 *.temp
 .DS_Store
 Thumbs.db
+
+# Package lock files (uncomment if you don't want to track them)
+# package-lock.json
+# frontend/package-lock.json

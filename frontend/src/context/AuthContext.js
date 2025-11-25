@@ -35,14 +35,35 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     try {
       const response = await authApi.post('/login', { username, password });
+      console.log('=== LOGIN DEBUG ===');
+      console.log('Full response object:', response);
+      console.log('Response data:', response.data);
+      console.log('Response data type:', typeof response.data);
+      console.log('Response data keys:', Object.keys(response.data || {}));
+      
       const { accessToken, user: userData } = response.data;
+      
+      console.log('Extracted accessToken:', accessToken);
+      console.log('Extracted user:', userData);
+      console.log('User type:', typeof userData);
+      console.log('==================');
+      
+      if (!accessToken) {
+        console.error('No access token in response!');
+        return { success: false, error: 'No access token received' };
+      }
+      
+      if (!userData) {
+        console.error('No user data in response!');
+        return { success: false, error: 'No user data received' };
+      }
       
       localStorage.setItem('token', accessToken);
       localStorage.setItem('user', JSON.stringify(userData));
       authApi.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
       setUser(userData);
       
-      return { success: true };
+      return { success: true, user: userData };
     } catch (error) {
       console.error('Login error:', error);
       return { 
@@ -62,7 +83,7 @@ export const AuthProvider = ({ children }) => {
       authApi.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
       setUser(newUser);
       
-      return { success: true, data: response.data };
+      return { success: true, user: newUser, data: response.data };
     } catch (error) {
       console.error('Registration error:', error);
       return { 

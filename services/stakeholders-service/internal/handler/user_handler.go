@@ -1,12 +1,15 @@
 package handler
 
 import (
+	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
-	"github.com/gin-gonic/gin"
 	"stakeholders-service/internal/model"
 	"stakeholders-service/internal/store"
+
+	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -48,7 +51,6 @@ func (h *UserHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// 3. Validacija uloge
 	switch req.Role {
 	case "guide", "tourist":
 		// OK
@@ -166,6 +168,29 @@ func (h *UserHandler) BlockUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "User blocked successfully"})
 }
 
+// UnblockUser odblokira korisnički nalog (samo za administratore)
+func (h *UserHandler) UnblockUser(c *gin.Context) {
+	userRole, exists := c.Get("userRole")
+	if !exists || userRole != "administrator" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Administrator access required"})
+		return
+	}
+
+	userIDStr := c.Param("id")
+	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	if err := h.store.UnblockUser(userID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to unblock user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "User unblocked successfully"})
+}
+
 // GetUserByID vraća korisnika po ID-u (interno za Auth servis)
 func (h *UserHandler) GetUserByID(c *gin.Context) {
 	userIDStr := c.Param("id")
@@ -191,4 +216,69 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 // Health check endpoint
 func (h *UserHandler) Health(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "stakeholders-service"})
+}
+
+func (h *UserHandler) GetMyProfile(c *gin.Context) {
+	userID := c.GetInt64("userID")
+	log.Printf("DEBUG: Trying to fetch profile for UserID: %d", userID)
+
+	profile, err := h.store.GetFullProfileByUserID(userID)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	if profile == nil {
+		c.JSON(404, gin.H{"error": "Profile not found"})
+		return
+	}
+
+	response := model.ProfileResponse{
+		ID:              profile.ID,
+		UserID:          profile.UserID,
+		FirstName:       profile.FirstName.String,
+		LastName:        profile.LastName.String,
+		ProfileImageURL: profile.ProfileImageURL.String,
+		Biography:       profile.Biography.String,
+		Motto:           profile.Motto.String,
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+func (h *UserHandler) UpdateProfile(c *gin.Context) {
+	userID := c.GetInt64("userID")
+	if userID == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Could not parse form data"})
+		return
+	}
+
+	firstName := c.PostForm("firstName")
+	lastName := c.PostForm("lastName")
+	biography := c.PostForm("biography")
+	motto := c.PostForm("motto")
+
+	var profileImageURL string
+	file, fileHeader, err := c.Request.FormFile("profileImage")
+	if err == nil {
+		defer file.Close()
+		filename := fmt.Sprintf("images/%d_%s", userID, fileHeader.Filename)
+		if err := c.SaveUploadedFile(fileHeader, "./"+filename); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save image"})
+			return
+		}
+		profileImageURL = "http://localhost:8001/" + filename
+	}
+
+	if err := h.store.UpdateProfile(userID, firstName, lastName, biography, motto, profileImageURL); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Profile updated successfully"})
 }

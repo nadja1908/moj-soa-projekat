@@ -5,10 +5,11 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
 	"blog-service/internal/handler"
 	"blog-service/internal/store"
+
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -27,18 +28,21 @@ func main() {
 	defer store.Close()
 
 	// Inicijalizacija handler-a
-	blogHandler := handler.NewBlogHandler(store)
+	stakeholdersServiceURL := getEnv("STAKEHOLDERS_SERVICE_URL", "http://stakeholders-service:8001")
+	blogHandler := handler.NewBlogHandler(store, stakeholdersServiceURL)
 
-	// Gin setup
 	r := gin.Default()
 
-	// CORS konfiguracija
+	// CORS
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"*"},
 		AllowCredentials: true,
 	}))
+
+	// 👉 Static serving za slike
+	r.Static("/uploads", "./uploads")
 
 	// Health check endpoint
 	r.GET("/health", blogHandler.Health)
@@ -51,11 +55,13 @@ func main() {
 	protected := r.Group("/")
 	protected.Use(handler.AuthMiddleware())
 	{
-		// Blog post endpoints
 		protected.POST("/posts", blogHandler.CreateBlogPost)
 		protected.POST("/posts/:id/comments", blogHandler.CreateComment)
 		protected.POST("/posts/:id/like", blogHandler.LikeBlogPost)
 		protected.DELETE("/posts/:id/like", blogHandler.UnlikeBlogPost)
+
+		// 👉 UPLOAD SLIKA
+		protected.POST("/uploads", blogHandler.UploadImage)
 	}
 
 	log.Printf("Blog service starting on port %s", port)

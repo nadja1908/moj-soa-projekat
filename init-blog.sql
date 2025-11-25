@@ -33,3 +33,17 @@ CREATE TABLE IF NOT EXISTS blog_likes (
     INDEX idx_likes_blog_id (blog_id),
     INDEX idx_likes_user_id (user_id)
 );
+
+
+-- Kreiranje tabele za slike blog postova
+CREATE TABLE IF NOT EXISTS blog_images (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    blog_id BIGINT NOT NULL,
+    image_url VARCHAR(512) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    INDEX idx_images_blog_id (blog_id),
+    CONSTRAINT fk_images_blog
+        FOREIGN KEY (blog_id) REFERENCES blog_posts(id)
+        ON DELETE CASCADE
+);

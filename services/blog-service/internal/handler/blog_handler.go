@@ -1,22 +1,35 @@
 package handler
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"time"
 
-	"github.com/gin-gonic/gin"
 	"blog-service/internal/model"
 	"blog-service/internal/store"
+
+	"github.com/gin-gonic/gin"
 )
 
 type BlogHandler struct {
-	store *store.Store
+	store                  *store.Store
+	stakeholdersServiceURL string
+	httpClient             *http.Client
 }
 
-func NewBlogHandler(store *store.Store) *BlogHandler {
-	return &BlogHandler{store: store}
+func NewBlogHandler(store *store.Store, stakeholdersServiceURL string) *BlogHandler {
+	return &BlogHandler{
+		store:                  store,
+		stakeholdersServiceURL: stakeholdersServiceURL,
+		httpClient:             &http.Client{Timeout: 5 * time.Second},
+	}
 }
 
+// CreateBlogPost kreira novi blog post
 // CreateBlogPost kreira novi blog post
 func (h *BlogHandler) CreateBlogPost(c *gin.Context) {
 	userID, exists := c.Get("userID")
@@ -38,15 +51,70 @@ func (h *BlogHandler) CreateBlogPost(c *gin.Context) {
 		Content:     req.Content,
 	}
 
+	// 1️⃣ prvo kreiramo sam blog post
 	if err := h.store.CreateBlogPost(post); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create blog post"})
 		return
 	}
 
+	// 2️⃣ ako postoje slike — čuvamo ih
+	if len(req.Images) > 0 {
+		if err := h.store.CreateBlogImages(post.ID, req.Images); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save images"})
+			return
+		}
+	}
+
+	// 3️⃣ vraćamo korisniku potvrdu
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Blog post created successfully",
 		"post":    post,
 	})
+}
+
+// fetchAuthor dohvata informacije o autoru iz stakeholders servisa
+func (h *BlogHandler) fetchAuthor(userID int64) *model.Author {
+	url := fmt.Sprintf("%s/internal/users/%d", h.stakeholdersServiceURL, userID)
+
+	resp, err := h.httpClient.Get(url)
+	if err != nil {
+		fmt.Printf("Error fetching author: %v\n", err)
+		return nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("Non-OK status from stakeholders service: %d\n", resp.StatusCode)
+		return nil
+	}
+
+	var response struct {
+		User struct {
+			ID       int64  `json:"id"`
+			Username string `json:"username"`
+			Email    string `json:"email"`
+		} `json:"user"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		fmt.Printf("Error decoding user response: %v\n", err)
+		return nil
+	}
+
+	return &model.Author{
+		ID:       response.User.ID,
+		Username: response.User.Username,
+		Email:    response.User.Email,
+	}
+}
+
+// enrichPostsWithAuthors dodaje author informacije u blog postove
+func (h *BlogHandler) enrichPostsWithAuthors(posts []model.BlogPost) {
+	for i := range posts {
+		if author := h.fetchAuthor(posts[i].UserID); author != nil {
+			posts[i].Author = author
+		}
+	}
 }
 
 // GetAllBlogPosts vraća sve blog postove
@@ -57,7 +125,10 @@ func (h *BlogHandler) GetAllBlogPosts(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"posts": posts})
+	// Dodaj author informacije
+	h.enrichPostsWithAuthors(posts)
+
+	c.JSON(http.StatusOK, posts)
 }
 
 // GetBlogPost vraća specifičan blog post
@@ -179,4 +250,33 @@ func (h *BlogHandler) UnlikeBlogPost(c *gin.Context) {
 // Health check endpoint
 func (h *BlogHandler) Health(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "blog-service"})
+}
+
+// UploadImage omogućava slanje slika na server
+func (h *BlogHandler) UploadImage(c *gin.Context) {
+	file, err := c.FormFile("image")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No file provided"})
+		return
+	}
+
+	// napravi folder ako ne postoji
+	if err := os.MkdirAll("uploads", 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload dir"})
+		return
+	}
+
+	filename := fmt.Sprintf("%d_%s", time.Now().UnixNano(), filepath.Base(file.Filename))
+	path := filepath.Join("uploads", filename)
+
+	if err := c.SaveUploadedFile(file, path); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		//"url": "/uploads/" + filename,
+		//"url": "/api/blog/uploads/" + filename,
+		"url": "http://localhost:8000/api/blog/uploads/" + filename,
+	})
 }

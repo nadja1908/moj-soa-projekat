@@ -31,6 +31,8 @@ services:
       - AUTH_SERVICE_URL=http://auth-service:8003
       - STAKEHOLDERS_SERVICE_URL=http://stakeholders-service:8001
       - BLOG_SERVICE_URL=http://blog-service:8002
+      - TOUR_SERVICE_URL=http://tour-service:8004
+      - PURCHASE_SERVICE_URL=http://purchase-service:8005
     networks:
       - app-network
     healthcheck:
@@ -47,6 +49,10 @@ services:
       stakeholders-service:
         condition: service_healthy
       blog-service:
+        condition: service_healthy
+      tour-service:
+        condition: service_healthy
+      purchase-service:
         condition: service_healthy
 
   # 3. Stakeholders Servis
@@ -104,7 +110,7 @@ services:
       stakeholders-service:
         condition: service_healthy
 
-  # 5. Blog Servis
+  # 5. Blog Servis (Go)
   blog-service:
     build:
       context: ./services/blog-service
@@ -113,24 +119,50 @@ services:
       - "8002:8002"
     environment:
       - PORT=8002
-      - SERVICE_NAME=BLOG-SERVICE
       - DB_USER=user
       - DB_PASS=password
       - DB_HOST=blog-db
       - DB_NAME=blog_db
-      - JWT_KEY=moj-tajni-kljuc-za-jwt-tokenizaciju-2024
-      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka
       - AUTH_SERVICE_URL=http://auth-service:8003
+      - STAKEHOLDERS_SERVICE_URL=http://stakeholders-service:8001
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "wget", "-q", "--timeout=10", "-O", "/dev/null", "http://localhost:8002/health"]
+      test: ["CMD", "wget", "-q", "--timeout=10", "-O", "/dev/null", "http://127.0.0.1:8002/health"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 20s
     depends_on:
       blog-db:
+        condition: service_healthy
+
+  # 6. Tour Servis
+  tour-service:
+    build:
+      context: ./services/tour-service
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      - PORT=8004
+      - SERVICE_NAME=TOUR-SERVICE
+      - DB_USER=user
+      - DB_PASS=password
+      - DB_HOST=tour-db
+      - DB_NAME=tour_db
+      - AUTH_SERVICE_URL=http://auth-service:8003
+      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--timeout=10", "-O", "/dev/null", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      tour-db:
         condition: service_healthy
 
   # 4. Baze Podataka
@@ -178,6 +210,82 @@ services:
       retries: 10
       start_period: 40s
 
+  tour-db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: "root_password"
+      MYSQL_DATABASE: "tour_db"
+      MYSQL_USER: "user"
+      MYSQL_PASSWORD: "password"
+    ports:
+      - "3309:3306"
+    volumes:
+      - tour-data:/var/lib/mysql
+      - ./init-tour.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  purchase-db:
+    image: mongo:latest
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - purchase-data:/data/db
+    networks:
+      - app-network
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: user
+      MONGO_INITDB_ROOT_PASSWORD: password
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand({ ping: 1 })", "purchase-db:27017/admin", "-u", "user", "-p", "password"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+    # ... (Ostali servisi)
+
+    # 8. Purchase Servis
+  purchase-service:
+    build:
+      context: ./services/purchase-service
+      dockerfile: Dockerfile
+    ports:
+      - "8005:8005"
+    environment:
+      - PORT=8005
+      - SERVICE_NAME=PURCHASE-SERVICE
+      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka
+      - DB_HOST=purchase-db
+      - DB_PORT=27017
+      - DB_NAME=purchase_db
+      - DB_USER=user
+      - DB_PASS=password
+      - TOUR_SERVICE_URL=http://tour-service:8004
+    networks:
+      - app-network
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--timeout=10", "-O", "/dev/null", "http://localhost:8005/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      purchase-db:
+        condition: service_healthy
+      tour-service:
+        condition: service_healthy
+
 networks:
   app-network:
     driver: bridge
@@ -185,3 +293,5 @@ networks:
 volumes:
   stakeholders-data:
   blog-data:
+  tour-data:
+  purchase-data:
