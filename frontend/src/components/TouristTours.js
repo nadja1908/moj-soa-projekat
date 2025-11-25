@@ -1,8 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Button, Table, Badge, Alert, Spinner, Row, Col } from 'react-bootstrap';
+import { useState, useEffect, useCallback } from 'react';
+import { Card, Button, Badge, Alert, Spinner, Row, Col } from 'react-bootstrap';
 import { tourApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import TourDetailsModal from './TourDetailsModal';
+
+import TourReviewsModal from './TourReviewsModal';
+
+
+import { useCart } from './CartContext';
+import { purchaseApi } from '../services/api'
+
 
 const TouristTours = () => {
   const [tours, setTours] = useState([]);
@@ -12,6 +19,13 @@ const TouristTours = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedTourId, setSelectedTourId] = useState(null);
   const { user } = useAuth();
+
+  const [showReviewsModal, setShowReviewsModal] = useState(false);
+const [selectedTourForReviews, setSelectedTourForReviews] = useState(null);
+
+
+  const { cartItems, addToCart } = useCart();
+
 
   const fetchAvailableTours = useCallback(async () => {
     try {
@@ -175,17 +189,49 @@ const TouristTours = () => {
     }
   };
 
-  const handleBookTour = (tour) => {
-    // TODO: Implement tour booking functionality
-    console.log('Adding tour to cart:', tour);
-    alert(`Tura "${tour.name}" je dodana u korpu!`);
-  };
+  const handleBookTour = async (tour) => {
+    if (!user || user.role !== 'tourist') {
+        alert("Morate biti prijavljeni kao Turista da dodate turu u korpu.");
+        return;
+    }
+
+    const alreadyInCart = cartItems.some(item => item.tourId === tour.id);
+      if (alreadyInCart) {
+        alert(`Tura "${tour.name}" je već dodata u korpu`);
+        return;
+    }
+
+    const requestBody = {
+        tourId: tour.id,
+        quantity: 1,
+    };
+
+    try {
+        const response = await purchaseApi.post("/add", requestBody);
+
+        if (response.status === 200) {
+            const updatedCart = response.data.cart;
+            const addedItem = updatedCart.items.find(item => item.tourId === tour.id);
+
+            if (addedItem) {
+                addToCart(addedItem);
+                alert(`Tura "${addedItem.tourName}" je uspešno dodata u korpu!`);
+            } else {
+                alert("Tura je već u korpi. Količina je ažurirana.");
+            }
+        }
+    } catch (error) {
+        console.error('Greška pri API pozivu za dodavanje u korpu:', error);
+        alert(`Greška: ${error.response?.data?.error || 'Server nije odgovorio.'}`);
+    }
+};
+
 
   const handleReviews = (tour) => {
-    // TODO: Implement tour reviews functionality
-    console.log('View reviews for tour:', tour);
-    alert(`Prikaz recenzija za turu "${tour.name}" - funkcionalnost će biti implementirana uskoro!`);
-  };
+  setSelectedTourForReviews(tour);
+  setShowReviewsModal(true);
+};
+
 
   const handleViewDetails = (tour) => {
     setSelectedTourId(tour.id);
@@ -256,7 +302,7 @@ const TouristTours = () => {
                             </div>
                             
                             <div className="mb-2">
-                              <strong>Vremena: </strong>
+                              <strong>Vreme: </strong>
                               {renderDuration(tour)}
                             </div>
                             
@@ -316,6 +362,16 @@ const TouristTours = () => {
         onHide={() => setShowDetailsModal(false)}
         tourId={selectedTourId}
       />
+      {/* Modal za recenzije */}
+<TourReviewsModal
+  show={showReviewsModal}
+  onHide={() => setShowReviewsModal(false)}
+  tour={selectedTourForReviews}
+  user={user}
+/>
+
+
+
     </div>
   );
 };

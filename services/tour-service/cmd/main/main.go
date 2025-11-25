@@ -37,46 +37,52 @@ func main() {
 		log.Fatal("Database environment variables must be set")
 	}
 
-	// Inicijalizacija store
-	store := store.NewStore(dbUser, dbPass, dbHost, dbName)
-	defer store.Close()
+	// Inicijalizacija STORE-a (glavni store sa konekcijom)
+	mainStore := store.NewStore(dbUser, dbPass, dbHost, dbName)
+	defer mainStore.Close()
 
 	// Start RPC server in a goroutine
-	go startRPCServer(rpcPort, store)
+	go startRPCServer(rpcPort, mainStore)
 
-	// Inicijalizacija handlers
-	tourHandler := handler.NewTourHandler(store)
-	keyPointHandler := handler.NewKeyPointHandler(store)
-	durationHandler := handler.NewTourDurationHandler(store)
-	simulatorHandler := handler.NewTourSimulatorHandler(store)
+	// Inicijalizacija pojedinačnih store-ova
+	tourStore := mainStore
+	keyPointStore := mainStore
+	durationStore := mainStore
+	simulatorStore := mainStore
+
+	// *** NOVO — ReviewStore (ovde koristimo GetDB() metod) ***
+	reviewStore := store.NewReviewStore(mainStore.GetDB())
+
+	// Handleri
+	tourHandler := handler.NewTourHandler(tourStore)
+	keyPointHandler := handler.NewKeyPointHandler(keyPointStore)
+	durationHandler := handler.NewTourDurationHandler(durationStore)
+	simulatorHandler := handler.NewTourSimulatorHandler(simulatorStore)
+
+	// *** NOVO — ReviewHandler ***
+	reviewHandler := handler.NewReviewHandler(reviewStore)
 
 	// Gin setup
 	r := gin.Default()
 
 	// CORS middleware
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowOrigins:     []string{"http://localhost:3000", "http://localhost:3001"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-User-ID", "X-User-Role"},
 		AllowCredentials: true,
 	}))
 
-	// JWT middleware function - sada čita user info iz headers umesto parsiranja JWT
+	// JWT middleware (API Gateway prosleđuje X-User-ID i X-User-Role)
 	authMiddleware := func(c *gin.Context) {
-		// Čitaj user info iz headers koje šalje API Gateway
 		userIDHeader := c.GetHeader("X-User-ID")
-		userRoleHeader := c.GetHeader("X-User-Role")
-
-		log.Printf("DEBUG: Tour authMiddleware - X-User-ID: '%s', X-User-Role: '%s'", userIDHeader, userRoleHeader)
 
 		if userIDHeader == "" {
-			log.Printf("DEBUG: Tour authMiddleware - No X-User-ID header!")
 			c.JSON(401, gin.H{"error": "User not authenticated"})
 			c.Abort()
 			return
 		}
 
-		// Set userId in context for handlers
 		userID, err := strconv.ParseInt(userIDHeader, 10, 64)
 		if err != nil {
 			c.JSON(401, gin.H{"error": "Invalid user ID"})
@@ -85,26 +91,24 @@ func main() {
 		}
 
 		c.Set("userId", userID)
-		log.Printf("DEBUG: Tour authMiddleware - Calling c.Next()")
 		c.Next()
-		log.Printf("DEBUG: Tour authMiddleware - After c.Next()")
 	}
 
-	// Static files za slike
+	// Static za slike
 	r.Static("/uploads", "./uploads")
 
-	// Health check
+	// Health
 	r.GET("/health", tourHandler.Health)
 
-	// Public rute (bez autentifikacije) - tours
+	// Public tours
 	r.GET("/api/tours/published", tourHandler.GetPublishedTours)
-	r.GET("/api/tours/public/:id", tourHandler.GetTourForTourist) // For tourists - only first key point
+	r.GET("/api/tours/public/:id", tourHandler.GetTourForTourist)
 
-	// Public rute - key points i durations (koristim drugačiji path)
+	// Public keypoints + durations
 	r.GET("/api/keypoints/tour/:tourId", keyPointHandler.GetTourKeyPoints)
 	r.GET("/api/durations/tour/:tourId", durationHandler.GetTourDurations)
 
-	// Protected tour routes (defined individually to avoid group slash issues)
+	// Protected tours
 	r.POST("/api/tours", authMiddleware, tourHandler.CreateTour)
 	r.GET("/api/tours/my", authMiddleware, tourHandler.GetMyTours)
 	r.PUT("/api/tours/:id", authMiddleware, tourHandler.UpdateTour)
@@ -113,25 +117,21 @@ func main() {
 	r.POST("/api/tours/:id/reactivate", authMiddleware, tourHandler.ReactivateTour)
 	r.DELETE("/api/tours/:id", authMiddleware, tourHandler.DeleteTour)
 
-	// Key points management (original routes)
+	// Keypoints
 	r.POST("/api/tours/keypoints", authMiddleware, keyPointHandler.CreateKeyPoint)
 	r.GET("/api/tours/keypoints/:id", authMiddleware, keyPointHandler.GetKeyPoint)
 	r.PUT("/api/tours/keypoints/:id", authMiddleware, keyPointHandler.UpdateKeyPoint)
 	r.DELETE("/api/tours/keypoints/:id", authMiddleware, keyPointHandler.DeleteKeyPoint)
-
-	// Key points management (Gateway-compatible routes)
-	// Gateway maps: POST /api/keypoints -> POST /api/tours/keypoints (za kreiranje)
-	// Gateway maps: GET /api/keypoints/tour/123 -> GET /api/tours/tour/123 (za čitanje)
 	r.GET("/api/tours/tour/:tourId", authMiddleware, keyPointHandler.GetTourKeyPoints)
 
-	// Key points reorder (posebna grupa)
+	// Reorder
 	r.POST("/api/keypoints/reorder/:tourId", authMiddleware, keyPointHandler.ReorderKeyPoints)
 
-	// Tour durations management
+	// Durations
 	r.POST("/api/tours/durations", authMiddleware, durationHandler.CreateTourDuration)
 	r.DELETE("/api/tours/durations/:id", authMiddleware, durationHandler.DeleteTourDuration)
 
-	// Simulator rute (sa autentifikacijom)
+	// Simulator
 	simulator := r.Group("/api/simulator")
 	simulator.Use(authMiddleware)
 	{
@@ -140,6 +140,13 @@ func main() {
 		simulator.POST("/execution", simulatorHandler.StartTourExecution)
 		simulator.POST("/execution/:id/complete", simulatorHandler.CompleteTourExecution)
 	}
+
+	// *** REVIEWS ***
+	// Public:
+	r.GET("/api/reviews/tour/:tourId", reviewHandler.GetReviewsByTourID)
+
+	// Protected:
+	r.POST("/api/reviews", authMiddleware, reviewHandler.CreateReview)
 
 	log.Printf("Tour service starting on port %s", port)
 	log.Fatal(r.Run(":" + port))

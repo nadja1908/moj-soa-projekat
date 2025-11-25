@@ -40,6 +40,23 @@ VALUES (
     'Putovanje je jedino što kupujemo, a čini nas bogatijima.'
 );
 
+INSERT IGNORE INTO users (username, password, email, role)
+VALUES ('pera_turista',
+        '$2a$10$zwx73C.axL2CyPD1R55cVO7gSVq48I9I31E0qnxD8dQuTo474a0Hm',
+        'pera@example.com',
+        'tourist');
+
+INSERT IGNORE INTO profiles (user_id, first_name, last_name, profile_image_url, biography, motto)
+VALUES (
+    3,
+    'Pera',
+    'Perić',
+    'http://localhost:8001/images/pera_turista.png',
+    'Zaljubljenik u putovanja, posebno u obilaske istorijskih mesta i muzeja.',
+    'Svet je knjiga — ko ne putuje, čita samo jednu stranu.'
+);
+
+
 -- Kreiranje indeksa za performanse
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_email ON users(email);

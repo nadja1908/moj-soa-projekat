@@ -1,9 +1,11 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from './CartContext';
 
 const NavigationBar = () => {
   const { user, logout } = useAuth();
+  const { cartItemCount } = useCart();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -64,6 +66,20 @@ const NavigationBar = () => {
           <div className="hidden md:flex items-center space-x-6">
             {user && (
               <>
+              {user.role === 'tourist' && (
+                  <Link 
+                    to="/purchase" 
+                      className="relative flex items-center space-x-1 text-gray-700 hover:text-indigo-600 transition-colors duration-200 font-medium"
+                   >
+                  <span>🛒</span>
+                    <span>Korpa</span>
+                    {cartItemCount > 0 && (
+                      <span className="absolute -top-3 -right-4 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                      {cartItemCount}
+                      </span>
+                     )}
+                  </Link>
+                  )}
                 {(user.role === 'guide' || user.role === 'tourist') && (
                   <Link 
                     to="/posts" 
