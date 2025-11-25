@@ -64,7 +64,20 @@ INSERT INTO blog_posts (user_id, title, description, content, created_at) VALUES
 
 (1, 'Fruška Gora - Planina vina i manastira', 'Duhovna i vinarska oaza Vojvodine', '# Fruška Gora\n\nFruška Gora je jedinstvena planina u ravnici, poznata po svojim manastirima i vinogradima.\n\n## Manastiri\n\nNa Fruškoj Gori se nalazi 16 pravoslavnih manastira, od kojih su najpoznatiji:\n- Krušedol\n- Hopovo\n- Novo Hopovo\n- Grgeteg\n\n## Vinarije\n\nRegion je poznat po proizvodnji kvalitetnih vina. Poseta vinarijama i degustacije su must-do aktivnosti.', NOW()),
 
-(2, 'Beograd - Grad koji nikad ne spava', 'Vodič kroz prestolnicu Srbije', '# Beograd\n\nBeograd je grad sa više od 7000 godina istorije, poznat po svojoj živoj atmosferi i kulturnoj sceni.\n\n## Istorijske znamenitosti\n\n- Kalemegdan\n- Hram Svetog Save\n- Knez Mihailova ulica\n- Skadarlija\n\n## Noćni život\n\nBeograd je poznat po splavovima i klubovima koji rade do jutra.\n\n## Gastronomija\n\nOd tradicionalnih kafana do modernih restorana - za svakoga ponešto!', NOW());
+(2, 'Beograd - Grad koji nikad ne spava', 'Vodič kroz prestolnicu Srbije', '# Beograd\n\nBeograd je grad sa više od 7000 godina istorije, poznat po svojoj živoj atmosferi i kulturnoj sceni.\n\n## Istorijske znamenitosti\n\n- Kalemegdan\n- Hram Svetog Save\n- Knez Mihailova ulica\n- Skadarlija\n\n## Noćni život\n\nBeograd je poznat po splavovima i klubovima koji rade do jutra.\n\n## Gastronomija\n\nOd tradicionalnih kafana do modernih restorana - za svakoga ponešto!', NOW()),
+
+-- Novi blogovi za nove korisnike
+(6, 'Muzejski tura po Evropi', 'Vodič za ljubitelje umetnosti', '# Muzeji koji morate posetiti\n\nEvropski muzeji čuvaju najvrednije umetnike dela svetske baštine.\n\n## Louvre, Paris\n\nDom Mona Lize i stotina drugih remek dela.\n\n## British Museum, London\n\nIstorijsko blago celokupnog sveta.\n\n## Prado, Madrid\n\nSpanska umetnost kroz vekove.', NOW() - INTERVAL 6 DAY),
+
+(7, 'Remote rad iz Barselone', 'Digitalni nomad vodič', '# Kako raditi iz Barselone\n\nBarselona je savršeno mesto za digitalne nomade.\n\n## Internet i koworking\n\n- Brza internet konekcija\n- Brojni koworking prostori\n- Kafići sa WiFi\n\n## Kvalitet života\n\n- Odličan javni prevoz\n- Plaže u gradu\n- Bogata kulturna scena', NOW() - INTERVAL 5 DAY),
+
+(8, 'Wellness retreat na Bali', 'Putovanje koje leči dušu', '# Bali - Ostrvo duhovnosti\n\nBali nudi savršenu kombinaciju relaksacije i duhovnog rasta.\n\n## Yoga retreats\n\n- Jutarnja yoga na plaži\n- Meditacija u prirodi\n- Zdravi obroci\n\n## Spa tretmani\n\n- Tradicionalni balijski masaža\n- Aromaterapija\n- Detoks programi', NOW() - INTERVAL 4 DAY),
+
+(6, 'Galerije u New York-u', 'Umetnički vodič kroz Big Apple', '# Umetnost u NYC\n\nNew York je svetska prestonica moderne umetnosti.\n\n## MoMA\n\nModerna i savremena umetnost.\n\n## Guggenheim\n\nJedinstvena arhitektura i izložbe.\n\n## Met Museum\n\nOd antike do savremenog doba.', NOW() - INTERVAL 3 DAY),
+
+(7, 'Rad iz Lisabona', 'Portugal za digitalne nomade', '# Lisabon calling\n\nLisabon postaje omiljeno mesto nomada.\n\n## Startup scena\n\n- Rastući tech sektor\n- Networking eventi\n- Podrška za strane preduzetnice\n\n## Životni troškovi\n\n- Pristupačniji od ostalih EU gradova\n- Odlična hrana\n- Bogat noćni život', NOW() - INTERVAL 2 DAY),
+
+(8, 'Ayurveda u Indiji', 'Tradicionalno lečenje', '# Putovanje u Kerala\n\nIndija nudi autentične ayurveda iskustva.\n\n## Ayurveda tretmani\n\n- Panchakarma detoks\n- Herbalnim tretmanima\n- Personalizovaon ishranom\n\n## Meditacija\n\n- Vipassana retreats\n- Ashram život\n- Yoga teacher training', NOW() - INTERVAL 1 DAY);
 
 -- Insertovanje sample blog slika
 INSERT INTO blog_images (blog_id, image_url) VALUES
@@ -75,4 +88,11 @@ INSERT INTO blog_images (blog_id, image_url) VALUES
 (5, 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800'),
 (6, 'https://images.unsplash.com/photo-1511593358241-7eea1f3c84e5?w=800'),
 (7, 'https://images.unsplash.com/photo-1510312305653-8ed496efae75?w=800'),
-(8, 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800');
+(8, 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800'),
+-- Slike za nove blogove
+(9, 'https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=800'),  -- Muzej
+(10, 'https://images.unsplash.com/photo-1539650116574-75c0c6d73c6e?w=800'), -- Barselona
+(11, 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800'), -- Bali yoga
+(12, 'https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=800'), -- NYC galerije
+(13, 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=800'), -- Lisabon
+(14, 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800'); -- Ayurveda Indija
