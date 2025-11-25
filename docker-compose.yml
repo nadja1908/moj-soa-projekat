@@ -32,6 +32,7 @@ services:
       - STAKEHOLDERS_SERVICE_URL=http://stakeholders-service:8001
       - BLOG_SERVICE_URL=http://blog-service:8002
       - TOUR_SERVICE_URL=http://tour-service:8004
+      - FOLLOWER_SERVICE_URL=http://follower-service:8080
       - PURCHASE_SERVICE_URL=http://purchase-service:8005
     networks:
       - app-network
@@ -52,6 +53,33 @@ services:
         condition: service_healthy
       tour-service:
         condition: service_healthy
+      follower-service:
+        condition: service_healthy
+
+  # 6. Follower Servis (C# .NET)
+  follower-service:
+    build:
+      context: ./services/follower-service
+      dockerfile: Dockerfile
+    ports:
+      - "8005:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - Neo4j__Uri=bolt://neo4j:7687
+      - Neo4j__User=neo4j
+      - Neo4j__Password=neo4jpassword
+      - Jwt__Secret=moj-tajni-kljuc-za-jwt-tokenizaciju-2024
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/follower/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      neo4j:
       purchase-service:
         condition: service_healthy
 
@@ -125,6 +153,7 @@ services:
       - DB_NAME=blog_db
       - AUTH_SERVICE_URL=http://auth-service:8003
       - STAKEHOLDERS_SERVICE_URL=http://stakeholders-service:8001
+      - FOLLOWER_SERVICE_URL=http://follower-service:8080
     networks:
       - app-network
     healthcheck:
@@ -166,6 +195,29 @@ services:
         condition: service_healthy
 
   # 4. Baze Podataka
+  neo4j:
+    image: neo4j:5.13.0
+    restart: always
+    ports:
+      - "7474:7474"  # HTTP
+      - "7687:7687"  # Bolt
+    environment:
+      - NEO4J_AUTH=neo4j/neo4jpassword
+      - NEO4J_dbms_memory_pagecache_size=1G
+      - NEO4J_dbms_memory_heap_initial__size=1G
+      - NEO4J_dbms_memory_heap_max__size=1G
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --timeout=10 -O /dev/null http://localhost:7474 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
   stakeholders-db:
     image: mysql:8.0
     restart: always
@@ -191,6 +243,7 @@ services:
   blog-db:
     image: mysql:8.0
     restart: always
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     environment:
       MYSQL_ROOT_PASSWORD: "root_password"
       MYSQL_DATABASE: "blog_db"
@@ -291,6 +344,8 @@ networks:
     driver: bridge
 
 volumes:
+  neo4j-data:
+  neo4j-logs:
   stakeholders-data:
   blog-data:
   tour-data:
