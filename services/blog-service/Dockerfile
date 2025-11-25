@@ -1,5 +1,5 @@
 # Stage 1: Build faza
-FROM golang:1.23-alpine AS builder
+FROM golang:1.25.4-alpine AS builder
 
 # Radni direktorijum unutar kontejnera
 WORKDIR /app

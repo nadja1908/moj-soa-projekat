@@ -51,6 +51,13 @@ const tourApi = axios.create({
   },
 });
 
+const purchaseApi = axios.create({
+  baseURL: `${API_GATEWAY_URL}/api/purchase`,
+  headers: {
+    'Content-Type': 'application/json',
+  }
+})
+
 // KeyPoints API through Gateway
 const keypointsApi = axios.create({
   baseURL: `${API_GATEWAY_URL}/api/keypoints`,
@@ -92,7 +99,11 @@ blogApi.interceptors.request.use(requestInterceptor);
 adminApi.interceptors.request.use(requestInterceptor);
 tourApi.interceptors.request.use(requestInterceptor);
 keypointsApi.interceptors.request.use(requestInterceptor);
+
 reviewsApi.interceptors.request.use(requestInterceptor);
+
+purchaseApi.interceptors.request.use(requestInterceptor);
+
 
 // Add error interceptors to all APIs
 authApi.interceptors.response.use((response) => response, handleAuthError);
@@ -100,7 +111,11 @@ usersApi.interceptors.response.use((response) => response, handleAuthError);
 adminApi.interceptors.response.use((response) => response, handleAuthError);
 tourApi.interceptors.response.use((response) => response, handleAuthError);
 keypointsApi.interceptors.response.use((response) => response, handleAuthError);
+
 reviewsApi.interceptors.response.use((response) => response, handleAuthError);
+
+purchaseApi.interceptors.response.use((response) => response, handleAuthError);
+
 
 // Special blog API interceptor with detailed error logging
 blogApi.interceptors.response.use(
@@ -121,4 +136,7 @@ blogApi.interceptors.response.use(
 const stakeholdersApi = usersApi;
 
 export default authApi;
-export { authApi, usersApi, blogApi, adminApi, stakeholdersApi, tourApi, keypointsApi, reviewsApi };
+
+export { authApi, usersApi, blogApi, adminApi, stakeholdersApi, tourApi, keypointsApi, reviewsApi,purchaseApi };
+
+

@@ -1,0 +1,20 @@
+# Ignore files and directories
+.git
+.gitignore
+README.md
+Dockerfile
+.dockerignore
+node_modules
+npm-debug.log
+coverage
+.nyc_output
+*.md
+**/.git
+**/node_modules
+**/npm-debug.log
+**/*.log
+**/coverage
+**/.nyc_output
+**/dist
+**/build
+../frontend/
