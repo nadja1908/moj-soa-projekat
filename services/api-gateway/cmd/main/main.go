@@ -134,7 +134,8 @@ func main() {
 		follower.GET("/is-following/:followingId", gatewayHandler.ProxyToFollower)
 		follower.GET("/followers", gatewayHandler.ProxyToFollower)
 		follower.GET("/following", gatewayHandler.ProxyToFollower)
-		follower.GET("/recommendations", gatewayHandler.ProxyToFollower)
+		// SAGA ORCHESTRATION: Recommendations with enriched data from stakeholders service
+		follower.GET("/recommendations", gatewayHandler.GetRecommendationsWithDetails)
 		follower.GET("/health", gatewayHandler.ProxyToFollower)
 	}
 
