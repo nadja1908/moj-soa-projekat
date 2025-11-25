@@ -40,6 +40,9 @@ func main() {
 		log.Printf("DEBUG: Using default tour service URL: '%s'", tourServiceURL)
 	}
 
+	followerServiceURL := os.Getenv("FOLLOWER_SERVICE_URL")
+	if followerServiceURL == "" {
+		followerServiceURL = "http://follower-service:8080"
 	purchaseServiceURL := os.Getenv("PURCHASE_SERVICE_URL")
 	log.Printf("DEBUG: Read PURCHASE_SERVICE_URL from env: '%s'", purchaseServiceURL)
 	if purchaseServiceURL == "" {
@@ -72,7 +75,8 @@ func main() {
 
 	// Initialize handlers - include all services
 	log.Printf("DEBUG: Creating gateway handler with tour URL: %s", tourServiceURL)
-	gatewayHandler := handler.NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, tourServiceURL, purchaseServiceURL)
+	gatewayHandler := handler.NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, tourServiceURL, followerServiceURL, purchaseServiceURL)
+	
 	log.Printf("DEBUG: Gateway handler created successfully!")
 
 	// Initialize middleware
@@ -112,12 +116,34 @@ func main() {
 		blog.POST("/posts", gatewayHandler.ProxyToBlog)
 		blog.PUT("/posts/:id", gatewayHandler.ProxyToBlog)
 		blog.DELETE("/posts/:id", gatewayHandler.ProxyToBlog)
+		
+		// Comments
+		blog.POST("/posts/:id/comments", gatewayHandler.ProxyToBlog)
+		blog.PUT("/comments/:commentId", gatewayHandler.ProxyToBlog)
+		blog.DELETE("/comments/:commentId", gatewayHandler.ProxyToBlog)
+		
+		// Likes
+		blog.POST("/posts/:id/like", gatewayHandler.ProxyToBlog)
+		blog.DELETE("/posts/:id/like", gatewayHandler.ProxyToBlog)
 
 		// Upload slika
 		blog.POST("/uploads", gatewayHandler.ProxyToBlog)
 		blog.GET("/uploads/*filepath", gatewayHandler.ProxyToBlog)
 	}
 
+	// Follower routes (auth required)
+	follower := router.Group("/api/follower")
+	follower.Use(authMiddleware.ValidateToken())
+	{
+		follower.POST("/follow", gatewayHandler.ProxyToFollower)
+		follower.DELETE("/unfollow/:followingId", gatewayHandler.ProxyToFollower)
+		follower.GET("/is-following/:followingId", gatewayHandler.ProxyToFollower)
+		follower.GET("/followers", gatewayHandler.ProxyToFollower)
+		follower.GET("/following", gatewayHandler.ProxyToFollower)
+		// SAGA ORCHESTRATION: Recommendations with enriched data from stakeholders service
+		follower.GET("/recommendations", gatewayHandler.GetRecommendationsWithDetails)
+		follower.GET("/health", gatewayHandler.ProxyToFollower)
+	}
 	log.Printf("DEBUG: About to configure purchase/cart routes...")
 	cart := router.Group("/api/purchase")
 	cart.Use(authMiddleware.ValidateToken())
@@ -205,6 +231,7 @@ func main() {
 	log.Printf("Stakeholders Service URL: %s", stakeholdersServiceURL)
 	log.Printf("Blog Service URL: %s", blogServiceURL)
 	log.Printf("Tour Service URL: %s", tourServiceURL)
+	log.Printf("Follower Service URL: %s", followerServiceURL)
 	log.Printf("Tour routes configured successfully!")
 	log.Printf("Purchase Service URL: %s", purchaseServiceURL)
 

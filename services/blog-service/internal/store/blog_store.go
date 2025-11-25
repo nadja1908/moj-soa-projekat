@@ -160,6 +160,50 @@ func (s *Store) GetCommentsByBlogID(blogID int64) ([]model.BlogComment, error) {
 	return comments, nil
 }
 
+// UpdateComment ažurira postojeći komentar
+func (s *Store) UpdateComment(commentID, userID int64, newText string) error {
+	query := `UPDATE blog_comments 
+			  SET comment_text = ?, updated_at = CURRENT_TIMESTAMP 
+			  WHERE id = ? AND user_id = ?`
+
+	result, err := s.db.Exec(query, newText, commentID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update comment: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("comment not found or user not authorized")
+	}
+
+	return nil
+}
+
+// DeleteComment briše komentar
+func (s *Store) DeleteComment(commentID, userID int64) error {
+	query := `DELETE FROM blog_comments WHERE id = ? AND user_id = ?`
+
+	result, err := s.db.Exec(query, commentID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to delete comment: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("comment not found or user not authorized")
+	}
+
+	return nil
+}
+
 // LikeBlogPost dodaje lajk na blog post
 func (s *Store) LikeBlogPost(userID, blogID int64) error {
 	query := `INSERT IGNORE INTO blog_likes (blog_id, user_id) VALUES (?, ?)`
@@ -189,6 +233,17 @@ func (s *Store) IsPostLikedByUser(userID, blogID int64) (bool, error) {
 		return false, fmt.Errorf("failed to check if post is liked: %w", err)
 	}
 	return count > 0, nil
+}
+
+// GetCommentsCountForPost vraća broj komentara za post
+func (s *Store) GetCommentsCountForPost(blogID int64) (int, error) {
+	query := `SELECT COUNT(*) FROM blog_comments WHERE blog_id = ?`
+	var count int
+	err := s.db.QueryRow(query, blogID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get comments count: %w", err)
+	}
+	return count, nil
 }
 
 func (s *Store) CreateBlogImages(blogID int64, imageURLs []string) error {

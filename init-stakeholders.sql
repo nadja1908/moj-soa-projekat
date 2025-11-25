@@ -24,21 +24,21 @@ CREATE TABLE IF NOT EXISTS profiles (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Ubacivanje test administratora i vodiča
+-- Ubacivanje test korisnika
+-- Svi korisnici imaju lozinku: "password123" (hashirana sa bcrypt)
 INSERT IGNORE INTO users (username, password, email, role) VALUES 
+('ana', '$2a$10$zwx73C.axL2CyPD1R55cVO7gSVq48I9I31E0qnxD8dQuTo474a0Hm', 'ana@example.com', 'tourist'),
+('marko', '$2a$10$zwx73C.axL2CyPD1R55cVO7gSVq48I9I31E0qnxD8dQuTo474a0Hm', 'marko@example.com', 'tourist'),
+('jovana', '$2a$10$zwx73C.axL2CyPD1R55cVO7gSVq48I9I31E0qnxD8dQuTo474a0Hm', 'jovana@example.com', 'tourist'),
 ('admin', '$2a$10$zwx73C.axL2CyPD1R55cVO7gSVq48I9I31E0qnxD8dQuTo474a0Hm', 'admin@example.com', 'administrator'),
-('marko_vodic', '$2a$10$zwx73C.axL2CyPD1R55cVO7gSVq48I9I31E0qnxD8dQuTo474a0Hm', 'marko@example.com', 'guide');
--- Lozinka je "password123" - hashirana sa bcrypt
+('petar_vodic', '$2a$10$zwx73C.axL2CyPD1R55cVO7gSVq48I9I31E0qnxD8dQuTo474a0Hm', 'petar@example.com', 'guide');
 
 INSERT IGNORE INTO profiles (user_id, first_name, last_name, profile_image_url, biography, motto)
-VALUES (
-    2,
-    'Marko',
-    'Marković',
-    'http://localhost:8001/images/marko_vodic.png',
-    'Iskusan vodič specijalizovan za planinske ture, hiking i pešačenje. Voli prirodu, avanturu i deljenje lokalnih legendi.',
-    'Putovanje je jedino što kupujemo, a čini nas bogatijima.'
-);
+VALUES 
+(1, 'Ana', 'Anić', 'https://i.pravatar.cc/150?img=1', 'Volim da putujem i otkrivam nove destinacije. Posebno me privlače planine i priroda.', 'Svet je knjiga - ko ne putuje čita samo jednu stranicu.'),
+(2, 'Marko', 'Marković', 'https://i.pravatar.cc/150?img=12', 'Strastveni putnik i blogger. Delim svoja iskustva sa letovanja i kulturnih tura.', 'Putuj, uči, rasti.'),
+(3, 'Jovana', 'Jovanović', 'https://i.pravatar.cc/150?img=5', 'Avanturista koji voli ekstremne sportove i istraživanje skrivenih destinacija.', 'Život je ili velika avantura ili ništa.'),
+(5, 'Petar', 'Petrović', 'https://i.pravatar.cc/150?img=15', 'Iskusan vodič specijalizovan za planinske ture, hiking i pešačenje.', 'Putovanje je jedino što kupujemo, a čini nas bogatijima.');
 
 INSERT IGNORE INTO users (username, password, email, role)
 VALUES ('pera_turista',
