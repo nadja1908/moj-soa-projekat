@@ -40,6 +40,7 @@ func main() {
 		log.Printf("DEBUG: Using default tour service URL: '%s'", tourServiceURL)
 	}
 
+<<<<<<< HEAD
 	// RPC service addresses
 	authRPCAddr := os.Getenv("AUTH_RPC_ADDR")
 	if authRPCAddr == "" {
@@ -49,6 +50,11 @@ func main() {
 	tourRPCAddr := os.Getenv("TOUR_RPC_ADDR")
 	if tourRPCAddr == "" {
 		tourRPCAddr = "tour-service:9004"
+=======
+	followerServiceURL := os.Getenv("FOLLOWER_SERVICE_URL")
+	if followerServiceURL == "" {
+		followerServiceURL = "http://follower-service:8080"
+>>>>>>> origin/develop
 	}
 
 	purchaseServiceURL := os.Getenv("PURCHASE_SERVICE_URL")
@@ -83,7 +89,8 @@ func main() {
 
 	// Initialize handlers - include all services
 	log.Printf("DEBUG: Creating gateway handler with tour URL: %s", tourServiceURL)
-	gatewayHandler := handler.NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, tourServiceURL, purchaseServiceURL)
+	gatewayHandler := handler.NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, tourServiceURL, followerServiceURL, purchaseServiceURL)
+	
 	log.Printf("DEBUG: Gateway handler created successfully!")
 
 	// Initialize RPC handler
@@ -124,8 +131,8 @@ func main() {
 
 	// User routes (auth required)
 	users := router.Group("/api/users")
-	users.Use(authMiddleware.ValidateToken())
 	{
+		users.Use(authMiddleware.ValidateToken())
 		users.GET("/profile", gatewayHandler.ProxyToStakeholders)
 		users.PUT("/profile", gatewayHandler.ProxyToStakeholders)
 		users.DELETE("/profile", gatewayHandler.ProxyToStakeholders)
@@ -142,16 +149,38 @@ func main() {
 		blog.POST("/posts", gatewayHandler.ProxyToBlog)
 		blog.PUT("/posts/:id", gatewayHandler.ProxyToBlog)
 		blog.DELETE("/posts/:id", gatewayHandler.ProxyToBlog)
+		
+		// Comments
+		blog.POST("/posts/:id/comments", gatewayHandler.ProxyToBlog)
+		blog.PUT("/comments/:commentId", gatewayHandler.ProxyToBlog)
+		blog.DELETE("/comments/:commentId", gatewayHandler.ProxyToBlog)
+		
+		// Likes
+		blog.POST("/posts/:id/like", gatewayHandler.ProxyToBlog)
+		blog.DELETE("/posts/:id/like", gatewayHandler.ProxyToBlog)
 
 		// Upload slika
 		blog.POST("/uploads", gatewayHandler.ProxyToBlog)
 		blog.GET("/uploads/*filepath", gatewayHandler.ProxyToBlog)
 	}
 
+	// Follower routes (auth required)
+	follower := router.Group("/api/follower")
+	{
+		follower.Use(authMiddleware.ValidateToken())
+		follower.POST("/follow", gatewayHandler.ProxyToFollower)
+		follower.DELETE("/unfollow/:followingId", gatewayHandler.ProxyToFollower)
+		follower.GET("/is-following/:followingId", gatewayHandler.ProxyToFollower)
+		follower.GET("/followers", gatewayHandler.ProxyToFollower)
+		follower.GET("/following", gatewayHandler.ProxyToFollower)
+		// SAGA ORCHESTRATION: Recommendations with enriched data from stakeholders service
+		follower.GET("/recommendations", gatewayHandler.GetRecommendationsWithDetails)
+		follower.GET("/health", gatewayHandler.ProxyToFollower)
+	}
 	log.Printf("DEBUG: About to configure purchase/cart routes...")
 	cart := router.Group("/api/purchase")
-	cart.Use(authMiddleware.ValidateToken())
 	{
+		cart.Use(authMiddleware.ValidateToken())
 		cart.GET("", gatewayHandler.ProxyToPurchase)
 		cart.GET("/", gatewayHandler.ProxyToPurchase)
 		cart.POST("/add", gatewayHandler.ProxyToPurchase)
@@ -162,8 +191,8 @@ func main() {
 
 	// Admin routes (auth required)
 	admin := router.Group("/api/admin")
-	admin.Use(authMiddleware.ValidateToken())
 	{
+		admin.Use(authMiddleware.ValidateToken())
 		admin.GET("/users", gatewayHandler.ProxyToStakeholders)
 		admin.PUT("/users/:id/block", gatewayHandler.ProxyToStakeholders)
 		admin.PUT("/users/:id/unblock", gatewayHandler.ProxyToStakeholders)
@@ -181,8 +210,8 @@ func main() {
 
 	// Protected tour routes (auth required)
 	toursProtected := router.Group("/api/tours")
-	toursProtected.Use(authMiddleware.ValidateToken())
 	{
+		toursProtected.Use(authMiddleware.ValidateToken())
 		// Tour CRUD (both with and without trailing slash)
 		toursProtected.POST("", gatewayHandler.ProxyToTours)
 		toursProtected.POST("/", gatewayHandler.ProxyToTours)
@@ -211,8 +240,8 @@ func main() {
 	// Key points routes (auth required)
 	log.Printf("DEBUG: About to configure keypoints routes...")
 	keypoints := router.Group("/api/keypoints")
-	keypoints.Use(authMiddleware.ValidateToken())
 	{
+		keypoints.Use(authMiddleware.ValidateToken())
 		keypoints.POST("", gatewayHandler.ProxyToKeyPoints)
 		keypoints.GET("/:id", gatewayHandler.ProxyToKeyPoints)
 		keypoints.PUT("/:id", gatewayHandler.ProxyToKeyPoints)
@@ -232,8 +261,8 @@ func main() {
 	}
 
 	reviewsProtected := router.Group("/api/reviews")
-	reviewsProtected.Use(authMiddleware.ValidateToken())
 	{
+		reviewsProtected.Use(authMiddleware.ValidateToken())
 		// Protected POST
 		reviewsProtected.POST("", gatewayHandler.ProxyToTours)
 		reviewsProtected.POST("/", gatewayHandler.ProxyToTours)
@@ -246,6 +275,7 @@ func main() {
 	log.Printf("Stakeholders Service URL: %s", stakeholdersServiceURL)
 	log.Printf("Blog Service URL: %s", blogServiceURL)
 	log.Printf("Tour Service URL: %s", tourServiceURL)
+	log.Printf("Follower Service URL: %s", followerServiceURL)
 	log.Printf("Tour routes configured successfully!")
 	log.Printf("Purchase Service URL: %s", purchaseServiceURL)
 

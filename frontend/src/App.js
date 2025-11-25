@@ -7,6 +7,8 @@ import TourManagement from './components/TourManagement';
 import TouristTours from './components/TouristTours';
 import BlogPosts from './components/BlogPosts';
 import CreatePost from './components/CreatePost';
+import MyBlogPosts from './components/MyBlogPosts';
+import Community from './components/Community';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProfilePage from './components/ProfilePage';
 import CartPage from './components/CartPage';
@@ -74,12 +76,26 @@ function AppContent() {
             path="/posts" 
             element={<BlogPosts />} 
           />
+          
+          {/* My Blog Posts - samo za autentifikovane korisnike */}
+          <Route 
+            path="/my-posts" 
+            element={user ? <MyBlogPosts /> : <Navigate to="/login" />} 
+          />
+          
 
           {/* Create Post - za sve autentifikovane korisnike */}
           <Route 
             path="/create-post" 
             element={user ? <CreatePost /> : <Navigate to="/login" />} 
           />
+          
+          {/* Community - preporuke za praćenje */}
+          <Route 
+            path="/community" 
+            element={user ? <Community /> : <Navigate to="/login" />} 
+          />
+          
 
           <Route 
             path="/" 

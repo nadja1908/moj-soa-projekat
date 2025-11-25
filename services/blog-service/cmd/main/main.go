@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Build version 4 - comments count added
 func main() {
 	// Čitanje environment varijabli
 	port := getEnv("PORT", "8002")
@@ -29,7 +30,8 @@ func main() {
 
 	// Inicijalizacija handler-a
 	stakeholdersServiceURL := getEnv("STAKEHOLDERS_SERVICE_URL", "http://stakeholders-service:8001")
-	blogHandler := handler.NewBlogHandler(store, stakeholdersServiceURL)
+	followerServiceURL := getEnv("FOLLOWER_SERVICE_URL", "http://follower-service:8080")
+	blogHandler := handler.NewBlogHandler(store, stakeholdersServiceURL, followerServiceURL)
 
 	r := gin.Default()
 
@@ -47,8 +49,8 @@ func main() {
 	// Health check endpoint
 	r.GET("/health", blogHandler.Health)
 
-	// Public routes
-	r.GET("/posts", blogHandler.GetAllBlogPosts)
+	// Public routes (sa opcional auth za isLiked)
+	r.GET("/posts", handler.OptionalAuthMiddleware(), blogHandler.GetAllBlogPosts)
 	r.GET("/posts/:id", blogHandler.GetBlogPost)
 
 	// Protected routes
@@ -57,6 +59,8 @@ func main() {
 	{
 		protected.POST("/posts", blogHandler.CreateBlogPost)
 		protected.POST("/posts/:id/comments", blogHandler.CreateComment)
+		protected.PUT("/comments/:commentId", blogHandler.UpdateComment)
+		protected.DELETE("/comments/:commentId", blogHandler.DeleteComment)
 		protected.POST("/posts/:id/like", blogHandler.LikeBlogPost)
 		protected.DELETE("/posts/:id/like", blogHandler.UnlikeBlogPost)
 
