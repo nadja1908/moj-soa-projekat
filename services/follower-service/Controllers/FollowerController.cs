@@ -173,6 +173,29 @@ public class FollowerController : ControllerBase
         }
     }
 
+    [HttpGet("recommendations")]
+    [Authorize]
+    public async Task<IActionResult> GetRecommendations()
+    {
+        try
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            {
+                return Unauthorized(new { message = "Invalid user token" });
+            }
+
+            var recommendations = await _neo4jService.GetRecommendationsAsync(userId);
+            _logger.LogInformation("Found {Count} recommendations for user {UserId}", recommendations.Count, userId);
+            return Ok(recommendations);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetRecommendations endpoint");
+            return StatusCode(500, new { message = "Internal server error" });
+        }
+    }
+
     [HttpGet("health")]
     public IActionResult HealthCheck()
     {

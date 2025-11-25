@@ -1,4 +1,5 @@
 using Neo4j.Driver;
+using follower_service.Models;
 
 namespace follower_service.Services;
 
@@ -152,6 +153,68 @@ public class Neo4jService : IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting following for user {UserId}", userId);
+            throw;
+        }
+    }
+
+    public async Task<List<UserRecommendation>> GetRecommendationsAsync(int userId)
+    {
+        await using var session = _driver.AsyncSession();
+        try
+        {
+            var recommendations = await session.ExecuteReadAsync(async tx =>
+            {
+                // Prvo pokušaj da nađeš prijatelje od prijatelja
+                var friendsOfFriendsQuery = @"
+                    MATCH (me:User {userId: $userId})-[:FOLLOWS]->(friend:User)-[:FOLLOWS]->(recommendation:User)
+                    WHERE NOT (me)-[:FOLLOWS]->(recommendation) 
+                      AND recommendation.userId <> $userId
+                    WITH recommendation, count(DISTINCT friend) as commonFollowers
+                    RETURN recommendation.userId as userId, 
+                           recommendation.username as username,
+                           commonFollowers
+                    ORDER BY commonFollowers DESC
+                    LIMIT 10";
+
+                var cursor = await tx.RunAsync(friendsOfFriendsQuery, new { userId });
+                var records = await cursor.ToListAsync();
+                
+                // Ako nema prijatelja od prijatelja, vrati sve korisnike koje ne pratiš
+                if (records.Count == 0)
+                {
+                    var allUsersQuery = @"
+                        MATCH (me:User {userId: $userId})
+                        MATCH (recommendation:User)
+                        WHERE recommendation.userId <> $userId
+                          AND NOT (me)-[:FOLLOWS]->(recommendation)
+                        RETURN recommendation.userId as userId,
+                               recommendation.username as username,
+                               0 as commonFollowers
+                        LIMIT 10";
+                    
+                    cursor = await tx.RunAsync(allUsersQuery, new { userId });
+                    records = await cursor.ToListAsync();
+                }
+                
+                return records.Select(r => new UserRecommendation
+                {
+                    UserId = r["userId"].As<int>(),
+                    Username = r["username"].As<string>(),
+                    CommonFollowers = r["commonFollowers"].As<int>(),
+                    Email = "",  // Email će se popuniti iz stakeholders servisa
+                    Role = null
+                }).ToList();
+            });
+
+            _logger.LogInformation("Found {Count} raw recommendations from Neo4j for user {UserId}", recommendations.Count, userId);
+            
+            // Sada treba da pozovemo stakeholders servis da dobijemo dodatne informacije
+            // Za sada vraćamo samo osnovne informacije iz Neo4j
+            return recommendations;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting recommendations for user {UserId}", userId);
             throw;
         }
     }

@@ -134,6 +134,7 @@ func main() {
 		follower.GET("/is-following/:followingId", gatewayHandler.ProxyToFollower)
 		follower.GET("/followers", gatewayHandler.ProxyToFollower)
 		follower.GET("/following", gatewayHandler.ProxyToFollower)
+		follower.GET("/recommendations", gatewayHandler.ProxyToFollower)
 		follower.GET("/health", gatewayHandler.ProxyToFollower)
 	}
 

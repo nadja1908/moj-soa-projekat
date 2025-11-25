@@ -9,6 +9,7 @@ import TouristTours from './components/TouristTours';
 import BlogPosts from './components/BlogPosts';
 import CreatePost from './components/CreatePost';
 import MyBlogPosts from './components/MyBlogPosts';
+import Community from './components/Community';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProfilePage from './components/ProfilePage';
 
@@ -79,6 +80,12 @@ function AppContent() {
           <Route 
             path="/create-post" 
             element={user ? <CreatePost /> : <Navigate to="/login" />} 
+          />
+          
+          {/* Community - preporuke za praćenje */}
+          <Route 
+            path="/community" 
+            element={user ? <Community /> : <Navigate to="/login" />} 
           />
           
           <Route 

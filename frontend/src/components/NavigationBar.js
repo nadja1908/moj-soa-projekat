@@ -61,6 +61,12 @@ const NavigationBar = () => {
         >
           📝 Moji Blogovi
         </Link>
+        <Link
+          to="/community"
+          className="text-gray-700 hover:text-purple-600 font-medium transition-colors duration-200 text-sm xl:text-base"
+        >
+          👥 Zajednica
+        </Link>
       </>
     ) : null;
     
