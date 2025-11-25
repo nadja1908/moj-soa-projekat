@@ -40,7 +40,7 @@ func main() {
 		log.Printf("DEBUG: Using default tour service URL: '%s'", tourServiceURL)
 	}
 
-<<<<<<< HEAD
+
 	// RPC service addresses
 	authRPCAddr := os.Getenv("AUTH_RPC_ADDR")
 	if authRPCAddr == "" {
@@ -50,11 +50,11 @@ func main() {
 	tourRPCAddr := os.Getenv("TOUR_RPC_ADDR")
 	if tourRPCAddr == "" {
 		tourRPCAddr = "tour-service:9004"
-=======
+
 	followerServiceURL := os.Getenv("FOLLOWER_SERVICE_URL")
 	if followerServiceURL == "" {
 		followerServiceURL = "http://follower-service:8080"
->>>>>>> origin/develop
+
 	}
 
 	purchaseServiceURL := os.Getenv("PURCHASE_SERVICE_URL")
@@ -283,3 +283,5 @@ func main() {
 		log.Fatal("Failed to start API Gateway:", err)
 	}
 }
+}
+

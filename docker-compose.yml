@@ -32,12 +32,12 @@ services:
       - STAKEHOLDERS_SERVICE_URL=http://stakeholders-service:8001
       - BLOG_SERVICE_URL=http://blog-service:8002
       - TOUR_SERVICE_URL=http://tour-service:8004
-<<<<<<< HEAD
+
       - AUTH_RPC_ADDR=auth-service:9003
       - TOUR_RPC_ADDR=tour-service:9004
-=======
+
       - FOLLOWER_SERVICE_URL=http://follower-service:8080
->>>>>>> origin/develop
+
       - PURCHASE_SERVICE_URL=http://purchase-service:8005
     networks:
       - app-network
