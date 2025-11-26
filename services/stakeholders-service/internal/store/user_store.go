@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"stakeholders-service/internal/model"
+
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -35,17 +36,17 @@ func (s *Store) CreateUser(user *model.User) error {
 func (s *Store) GetUserByUsername(username string) (*model.User, error) {
 	user := &model.User{}
 	query := "SELECT id, username, password, email, role, is_active FROM users WHERE username = ?"
-	
+
 	row := s.db.QueryRow(query, username)
 	err := row.Scan(&user.ID, &user.Username, &user.Password, &user.Email, &user.Role, &user.IsActive)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil // Korisnik ne postoji
 		}
 		return nil, fmt.Errorf("failed to get user by username: %w", err)
 	}
-	
+
 	return user, nil
 }
 
@@ -53,17 +54,17 @@ func (s *Store) GetUserByUsername(username string) (*model.User, error) {
 func (s *Store) GetUserByEmail(email string) (*model.User, error) {
 	user := &model.User{}
 	query := "SELECT id, username, password, email, role, is_active FROM users WHERE email = ?"
-	
+
 	row := s.db.QueryRow(query, email)
 	err := row.Scan(&user.ID, &user.Username, &user.Password, &user.Email, &user.Role, &user.IsActive)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil // Korisnik ne postoji
 		}
 		return nil, fmt.Errorf("failed to get user by email: %w", err)
 	}
-	
+
 	return user, nil
 }
 
@@ -71,17 +72,17 @@ func (s *Store) GetUserByEmail(email string) (*model.User, error) {
 func (s *Store) GetUserByID(id int64) (*model.User, error) {
 	user := &model.User{}
 	query := "SELECT id, username, email, role, is_active FROM users WHERE id = ?"
-	
+
 	row := s.db.QueryRow(query, id)
 	err := row.Scan(&user.ID, &user.Username, &user.Email, &user.Role, &user.IsActive)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get user by ID: %w", err)
 	}
-	
+
 	return user, nil
 }
 
@@ -131,9 +132,9 @@ func (s *Store) UnblockUser(userID int64) error {
 }
 
 func (s *Store) GetFullProfileByUserID(userID int64) (*model.Profile, error) {
-    profile := &model.Profile{}
+	profile := &model.Profile{}
 
-    query := `
+	query := `
         SELECT
             p.id, p.user_id, p.first_name, p.last_name,
             p.profile_image_url, p.biography, p.motto
@@ -141,40 +142,39 @@ func (s *Store) GetFullProfileByUserID(userID int64) (*model.Profile, error) {
         WHERE p.user_id = ?
     `
 
-    row := s.db.QueryRow(query, userID)
-    err := row.Scan(
-        &profile.ID,
-        &profile.UserID,
-        &profile.FirstName,
-        &profile.LastName,
-        &profile.ProfileImageURL,
-        &profile.Biography,
-        &profile.Motto,
-    )
+	row := s.db.QueryRow(query, userID)
+	err := row.Scan(
+		&profile.ID,
+		&profile.UserID,
+		&profile.FirstName,
+		&profile.LastName,
+		&profile.ProfileImageURL,
+		&profile.Biography,
+		&profile.Motto,
+	)
 
-    if err != nil {
-        if err == sql.ErrNoRows {
-            return nil, nil
-        }
-        return nil, fmt.Errorf("failed to get profile by user ID: %w", err)
-    }
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get profile by user ID: %w", err)
+	}
 
-    return profile, nil
+	return profile, nil
 }
 
 func (s *Store) UpdateProfile(userID int64, firstName, lastName, biography, motto, profileImageURL string) error {
-    query := `UPDATE profiles SET first_name=?, last_name=?, biography=?, motto=?`
-    args := []interface{}{firstName, lastName, biography, motto}
+	query := `UPDATE profiles SET first_name=?, last_name=?, biography=?, motto=?`
+	args := []interface{}{firstName, lastName, biography, motto}
 
-    if profileImageURL != "" {
-        query += ", profile_image_url=?"
-        args = append(args, profileImageURL)
-    }
+	if profileImageURL != "" {
+		query += ", profile_image_url=?"
+		args = append(args, profileImageURL)
+	}
 
-    query += " WHERE user_id=?"
-    args = append(args, userID)
+	query += " WHERE user_id=?"
+	args = append(args, userID)
 
-    _, err := s.db.Exec(query, args...)
-    return err
+	_, err := s.db.Exec(query, args...)
+	return err
 }
-

@@ -29,7 +29,7 @@ type GatewayHandler struct {
 	tourGRPCClient         tourpb.TourServiceClient
 }
 
-func NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, tourServiceURL, purchaseURL string) *GatewayHandler {
+func NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, tourServiceURL, followerServiceURL, purchaseURL string) *GatewayHandler {
 	// Podesi gRPC adresu (iz env ili podrazumevano)
 	grpcAddr := os.Getenv("TOUR_GRPC_ADDR")
 	if grpcAddr == "" {

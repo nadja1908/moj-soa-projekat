@@ -53,11 +53,6 @@ func main() {
 		log.Printf("DEBUG: Using default purchase service URL: '%s'", purchaseServiceURL)
 	}
 
-	followerServiceURL := os.Getenv("FOLLOWER_SERVICE_URL")
-	if followerServiceURL == "" {
-		followerServiceURL = "http://follower-service:8006"
-	}
-
 	// RPC addresses
 	authRPCAddr := "auth-service:9003"
 	tourRPCAddr := "tour-service:9004"
@@ -88,7 +83,7 @@ func main() {
 	// Initialize handlers - include all services
 	log.Printf("DEBUG: Creating gateway handler with tour URL: %s", tourServiceURL)
 	gatewayHandler := handler.NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, tourServiceURL, followerServiceURL, purchaseServiceURL)
-	
+
 	log.Printf("DEBUG: Gateway handler created successfully!")
 
 	// Initialize RPC handler
@@ -147,12 +142,12 @@ func main() {
 		blog.POST("/posts", gatewayHandler.ProxyToBlog)
 		blog.PUT("/posts/:id", gatewayHandler.ProxyToBlog)
 		blog.DELETE("/posts/:id", gatewayHandler.ProxyToBlog)
-		
+
 		// Comments
 		blog.POST("/posts/:id/comments", gatewayHandler.ProxyToBlog)
 		blog.PUT("/comments/:commentId", gatewayHandler.ProxyToBlog)
 		blog.DELETE("/comments/:commentId", gatewayHandler.ProxyToBlog)
-		
+
 		// Likes
 		blog.POST("/posts/:id/like", gatewayHandler.ProxyToBlog)
 		blog.DELETE("/posts/:id/like", gatewayHandler.ProxyToBlog)
