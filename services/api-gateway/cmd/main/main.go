@@ -42,8 +42,9 @@ func main() {
 
 	followerServiceURL := os.Getenv("FOLLOWER_SERVICE_URL")
 	if followerServiceURL == "" {
-		followerServiceURL = "http://follower-service:8080"
+		followerServiceURL = "http://follower-service:8006"
 	}
+	log.Printf("DEBUG: Follower Service URL: %s", followerServiceURL)
 
 	purchaseServiceURL := os.Getenv("PURCHASE_SERVICE_URL")
 	log.Printf("DEBUG: Read PURCHASE_SERVICE_URL from env: '%s'", purchaseServiceURL)
@@ -134,6 +135,7 @@ func main() {
 	}
 
 	// Follower routes (auth required)
+	log.Printf("DEBUG: About to configure follower routes...")
 	follower := router.Group("/api/follower")
 	{
 		follower.Use(authMiddleware.ValidateToken())
@@ -146,6 +148,7 @@ func main() {
 		follower.GET("/recommendations", gatewayHandler.GetRecommendationsWithDetails)
 		follower.GET("/health", gatewayHandler.ProxyToFollower)
 	}
+	log.Printf("DEBUG: Follower routes configured successfully!")
 	log.Printf("DEBUG: About to configure purchase/cart routes...")
 	cart := router.Group("/api/purchase")
 	{

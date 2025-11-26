@@ -32,7 +32,7 @@ services:
       - STAKEHOLDERS_SERVICE_URL=http://stakeholders-service:8001
       - BLOG_SERVICE_URL=http://blog-service:8002
       - TOUR_SERVICE_URL=http://tour-service:8004
-      - FOLLOWER_SERVICE_URL=http://follower-service:8080
+      - FOLLOWER_SERVICE_URL=http://follower-service:8006
       - PURCHASE_SERVICE_URL=http://purchase-service:8005
     networks:
       - app-network
