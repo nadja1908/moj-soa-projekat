@@ -19,6 +19,11 @@ func main() {
 		port = "8004"
 	}
 
+	rpcPort := os.Getenv("RPC_PORT")
+	if rpcPort == "" {
+		rpcPort = "9004"
+	}
+
 	dbUser := os.Getenv("DB_USER")
 	dbPass := os.Getenv("DB_PASS")
 	dbHost := os.Getenv("DB_HOST")
@@ -91,6 +96,10 @@ func main() {
 	// Public tours
 	r.GET("/api/tours/published", tourHandler.GetPublishedTours)
 	r.GET("/api/tours/public/:id", tourHandler.GetTourForTourist)
+
+	// RPC endpoints - HTTP interface to internal RPC calls
+	r.GET("/api/rpc/tours/published", tourHandler.GetPublishedToursRPC)
+	r.GET("/api/rpc/tours/public/:id", tourHandler.GetTourForTouristRPC)
 
 	// Public keypoints + durations
 	r.GET("/api/keypoints/tour/:tourId", keyPointHandler.GetTourKeyPoints)

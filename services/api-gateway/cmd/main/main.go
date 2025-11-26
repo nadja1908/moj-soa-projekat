@@ -53,6 +53,15 @@ func main() {
 		log.Printf("DEBUG: Using default purchase service URL: '%s'", purchaseServiceURL)
 	}
 
+	followerServiceURL := os.Getenv("FOLLOWER_SERVICE_URL")
+	if followerServiceURL == "" {
+		followerServiceURL = "http://follower-service:8006"
+	}
+
+	// RPC addresses
+	authRPCAddr := "auth-service:9003"
+	tourRPCAddr := "tour-service:9004"
+
 	// Initialize Gin router
 	router := gin.Default()
 
@@ -82,6 +91,16 @@ func main() {
 	
 	log.Printf("DEBUG: Gateway handler created successfully!")
 
+	// Initialize RPC handler
+	rpcHandler, err := handler.NewRPCHandler(authRPCAddr, tourRPCAddr, gatewayHandler)
+	if err != nil {
+		log.Printf("WARNING: Failed to initialize RPC handler: %v", err)
+		log.Printf("RPC endpoints will not be available")
+	} else {
+		defer rpcHandler.Close()
+		log.Printf("RPC handler initialized successfully!")
+	}
+
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(authServiceURL)
 
@@ -97,6 +116,15 @@ func main() {
 		auth.POST("/register", gatewayHandler.ProxyToAuth)
 		auth.POST("/refresh", gatewayHandler.ProxyToAuth)
 		auth.GET("/validate", gatewayHandler.ProxyToAuth)
+	}
+
+	// RPC Auth routes (alternative implementation)
+	if rpcHandler != nil {
+		rpcAuth := router.Group("/api/rpc/auth")
+		{
+			rpcAuth.POST("/login", rpcHandler.LoginRPC)
+			rpcAuth.POST("/register", rpcHandler.RegisterRPC)
+		}
 	}
 
 	// User routes (auth required)
@@ -175,9 +203,23 @@ func main() {
 	log.Printf("DEBUG: About to configure tour routes...")
 	tours := router.Group("/api/tours")
 	{
-		// Public routes
+		// Public routes - standard HTTP proxy
 		tours.GET("/published", gatewayHandler.ProxyToTours)
 		tours.GET("/public/:id", gatewayHandler.ProxyToTours)
+	}
+
+	// RPC Tour routes - proxy to HTTP endpoints that use RPC internally
+	rpcTours := router.Group("/api/rpc/tours")
+	{
+		rpcTours.GET("/published", func(c *gin.Context) {
+			// Proxy to tour service RPC endpoint
+			gatewayHandler.ProxyRequest(c, gatewayHandler.TourServiceURL()+"/api/rpc/tours/published")
+		})
+		rpcTours.GET("/public/:id", func(c *gin.Context) {
+			// Proxy to tour service RPC endpoint
+			id := c.Param("id")
+			gatewayHandler.ProxyRequest(c, gatewayHandler.TourServiceURL()+"/api/rpc/tours/public/"+id)
+		})
 	}
 
 	// Protected tour routes (auth required)
@@ -195,6 +237,17 @@ func main() {
 		toursProtected.POST("/:id/publish", gatewayHandler.ProxyToTours)
 		toursProtected.POST("/:id/archive", gatewayHandler.ProxyToTours)
 		toursProtected.POST("/:id/reactivate", gatewayHandler.ProxyToTours)
+	}
+
+	// RPC Tour routes (alternative implementation for specific use cases)
+	if rpcHandler != nil {
+		rpcToursAuth := router.Group("/api/rpc/tours")
+		rpcToursAuth.Use(authMiddleware.ValidateToken())
+		{
+			rpcToursAuth.POST("", rpcHandler.RPCCreateTour)
+			rpcToursAuth.POST("/", rpcHandler.RPCCreateTour)
+			rpcToursAuth.GET("/my", rpcHandler.RPCGetTours)
+		}
 	}
 	log.Printf("DEBUG: Tour routes configured successfully!")
 

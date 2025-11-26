@@ -50,3 +50,24 @@ type User struct {
 	Role     string `json:"role"`
 	IsActive bool   `json:"isActive"`
 }
+
+// RPC request/response modeli
+type LoginRPCRequest struct {
+	Username string
+	Password string
+}
+
+type RegisterRPCRequest struct {
+	Username string
+	Password string
+	Email    string
+	Role     string
+}
+
+type AuthRPCResponse struct {
+	AccessToken  string
+	RefreshToken string
+	ExpiresAt    time.Time
+	User         User
+	Error        string
+}

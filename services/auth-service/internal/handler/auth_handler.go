@@ -248,6 +248,11 @@ func (h *AuthHandler) generateTokens(userID int64, role string) (string, string,
 	return accessTokenString, refreshTokenString, expirationTime, nil
 }
 
+// GenerateJWT je public metoda za generiranje tokenai - koristi se u RPC handler
+func (h *AuthHandler) GenerateJWT(userID int64, username, role string) (string, string, time.Time, error) {
+	return h.generateTokens(userID, role)
+}
+
 // validateAccessToken validira access token
 func (h *AuthHandler) validateAccessToken(tokenString string) (*AuthClaims, error) {
 	claims := &AuthClaims{}

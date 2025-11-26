@@ -2,12 +2,14 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 
 	"tour-service/internal/model"
 	"tour-service/internal/store"
+	tourpb "tour-service/proto"
 
 	"github.com/gin-gonic/gin"
 )
@@ -390,4 +392,90 @@ func getUserIDFromContext(c *gin.Context) int64 {
 
 	log.Printf("DEBUG: Got userId from context: %d", userID)
 	return userID
+}
+
+// RPC endpoints - HTTP interface to internal RPC calls
+func (h *TourHandler) GetPublishedToursRPC(c *gin.Context) {
+	log.Printf("DEBUG: GetPublishedToursRPC called - HTTP endpoint that calls internal RPC")
+
+	// Pozivamo postojeći TourRPCServer direktno
+	rpcServer := NewTourRPCServer(h.store)
+
+	// Kreiraj gRPC request
+	resp, err := rpcServer.GetPublishedTours(c.Request.Context(), &tourpb.GetPublishedToursRequest{})
+	if err != nil {
+		log.Printf("ERROR: RPC GetPublishedTours failed: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch tours via RPC"})
+		return
+	}
+
+	// Mapiranje na HTTP odgovor
+	tours := make([]gin.H, 0, len(resp.Tours))
+	for _, t := range resp.Tours {
+		tours = append(tours, gin.H{
+			"id":          t.Id,
+			"name":        t.Name,
+			"description": t.Description,
+			"difficulty":  t.Difficulty,
+			"status":      t.Status,
+			"price":       t.Price,
+			"distanceKm":  t.DistanceKm,
+			"publishedAt": t.PublishedAt,
+			"tags":        t.Tags,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"tours":   tours,
+	})
+}
+
+func (h *TourHandler) GetTourForTouristRPC(c *gin.Context) {
+	log.Printf("DEBUG: GetTourForTouristRPC called - HTTP endpoint that calls internal RPC")
+
+	idStr := c.Param("id")
+	if idStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing tour id"})
+		return
+	}
+
+	var id int64
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tour id"})
+		return
+	}
+
+	// Pozivamo postojeći TourRPCServer direktno
+	rpcServer := NewTourRPCServer(h.store)
+
+	// Kreiraj gRPC request
+	resp, err := rpcServer.GetPublicTour(c.Request.Context(), &tourpb.GetPublicTourRequest{Id: id})
+	if err != nil {
+		log.Printf("ERROR: RPC GetPublicTour failed: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch tour via RPC"})
+		return
+	}
+
+	if resp.Tour == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Tour not found"})
+		return
+	}
+
+	t := resp.Tour
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"tour": gin.H{
+			"id":          t.Id,
+			"name":        t.Name,
+			"price":       t.Price,
+			"status":      t.Status,
+			"description": t.Description,
+			"distanceKm":  t.DistanceKm,
+			"difficulty":  t.Difficulty,
+			"tags":        t.Tags,
+			"publishedAt": t.PublishedAt,
+		},
+	})
 }

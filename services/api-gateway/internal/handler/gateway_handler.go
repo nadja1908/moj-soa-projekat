@@ -2,14 +2,21 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
+	"time"
+
+	tourpb "api-gateway/proto"
 
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type GatewayHandler struct {
@@ -19,9 +26,27 @@ type GatewayHandler struct {
 	tourServiceURL         string
 	followerServiceURL     string
 	purchaseServiceURL     string
+	tourGRPCClient         tourpb.TourServiceClient
 }
 
-func NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, tourServiceURL, followerServiceURL, purchaseURL string) *GatewayHandler {
+func NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, tourServiceURL, purchaseURL string) *GatewayHandler {
+	// Podesi gRPC adresu (iz env ili podrazumevano)
+	grpcAddr := os.Getenv("TOUR_GRPC_ADDR")
+	if grpcAddr == "" {
+		// u Dockeru: naziv servisa + port iz tour-service
+		grpcAddr = "tour-service:50051"
+	}
+
+	var tourClient tourpb.TourServiceClient
+
+	conn, err := grpc.Dial(grpcAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("ERROR: failed to connect to Tour gRPC at %s: %v", grpcAddr, err)
+	} else {
+		log.Printf("Connected to Tour gRPC at %s", grpcAddr)
+		tourClient = tourpb.NewTourServiceClient(conn)
+	}
+
 	return &GatewayHandler{
 		authServiceURL:         authServiceURL,
 		stakeholdersServiceURL: stakeholdersServiceURL,
@@ -29,9 +54,23 @@ func NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, t
 		tourServiceURL:         tourServiceURL,
 		followerServiceURL:     followerServiceURL,
 		purchaseServiceURL:     purchaseURL,
+		tourGRPCClient:         tourClient,
 	}
 }
 
+// Public method to access tourServiceURL
+func (h *GatewayHandler) TourServiceURL() string {
+	return h.tourServiceURL
+}
+
+// Public method to call proxyRequest
+func (h *GatewayHandler) ProxyRequest(c *gin.Context, targetURL string) {
+	h.proxyRequest(c, targetURL)
+}
+
+// ////////////////////////
+// AUTH SERVICE PROXY
+// ////////////////////////
 func (h *GatewayHandler) ProxyToAuth(c *gin.Context) {
 	path := strings.TrimPrefix(c.Request.URL.Path, "/api/auth")
 	if path == "" {
@@ -176,6 +215,125 @@ func (h *GatewayHandler) ProxyToTours(c *gin.Context) {
 	targetURL := h.tourServiceURL + "/api/tours" + path
 	log.Printf("DEBUG: ProxyToTours proxying to: %s", targetURL)
 	h.proxyRequest(c, targetURL)
+}
+
+// ////////////////////////
+// "RPC" HANDLERI ZA TURE (za /published i /public/:id)
+// Trenutno samo wrap ProxyToTours — u sledećem koraku ovde ubacujemo pravi RPC poziv.
+// ////////////////////////
+
+// GET /api/tours/published  -> za sada isti kao ProxyToTours
+func (h *GatewayHandler) GetPublishedToursRPC(c *gin.Context) {
+	log.Printf("DEBUG: GetPublishedToursRPC called (using gRPC)...")
+
+	// Ako gRPC klijent nije spreman → fallback na HTTP proxy (da ti ništa ne pukne)
+	if h.tourGRPCClient == nil {
+		log.Printf("WARN: tourGRPCClient is nil, falling back to HTTP ProxyToTours")
+		h.ProxyToTours(c)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+	defer cancel()
+
+	resp, err := h.tourGRPCClient.GetPublishedTours(ctx, &tourpb.GetPublishedToursRequest{})
+	if err != nil {
+		log.Printf("ERROR: GetPublishedTours RPC failed: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to fetch tours via RPC"})
+		return
+	}
+
+	// Mapiramo na isti JSON oblik koji frontend već očekuje:
+	// { success: true, tours: [...] }
+	tours := make([]gin.H, 0, len(resp.Tours))
+	for _, t := range resp.Tours {
+		tours = append(tours, gin.H{
+			"id":          t.Id,
+			"name":        t.Name,
+			"description": t.Description,
+			"difficulty":  t.Difficulty,
+			"status":      t.Status,
+			"price":       t.Price,
+			"distanceKm":  t.DistanceKm,
+			"publishedAt": t.PublishedAt,
+			"tags":        t.Tags,
+			// frontend ti je ranije imao firstKeyPoint u listi – može ostati null
+			"firstKeyPoint": nil,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"tours":   tours,
+	})
+}
+
+// GET /api/tours/public/:id  -> za sada isti kao ProxyToTours
+func (h *GatewayHandler) GetPublicTourRPC(c *gin.Context) {
+	log.Printf("DEBUG: GetPublicTourRPC called (using gRPC)...")
+
+	if h.tourGRPCClient == nil {
+		log.Printf("WARN: tourGRPCClient is nil, falling back to HTTP ProxyToTours")
+		h.ProxyToTours(c)
+		return
+	}
+
+	// id iz URL-a /api/tours/public/:id
+	idStr := c.Param("id")
+	if idStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing tour id"})
+		return
+	}
+
+	// gRPC request
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+	defer cancel()
+
+	// Pretpostavljamo da u proto-u GetPublicTourRequest ima field "id"
+	// tipa int64 (što si i napravila)
+	req := &tourpb.GetPublicTourRequest{}
+	// parsiranje string id → int64
+	// (možemo direktno u proto, ali sigurnije je da validiramo ovde)
+	// koristi fmt.Sscanf da ne uvodimo strconv baš ako ne želiš
+	var id int64
+	_, err := fmt.Sscanf(idStr, "%d", &id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tour id"})
+		return
+	}
+	req.Id = id
+
+	resp, err := h.tourGRPCClient.GetPublicTour(ctx, req)
+	if err != nil {
+		log.Printf("ERROR: GetPublicTour RPC failed: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to fetch tour via RPC"})
+		return
+	}
+
+	if resp.Tour == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Tour not found"})
+		return
+	}
+
+	t := resp.Tour
+
+	// OPET: mapiramo na isti JSON kao stari HTTP handler GetTourForTourist
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"tour": gin.H{
+			"id":          t.Id,
+			"name":        t.Name,
+			"price":       t.Price,
+			"status":      t.Status,
+			"description": t.Description,
+			"distanceKm":  t.DistanceKm,
+			"difficulty":  t.Difficulty,
+			"tags":        t.Tags,
+			"publishedAt": t.PublishedAt,
+			// ako želiš, možeš dodati i durations / keyPoints
+			// ali frontend ti ih trenutno ne koristi u tom view-u
+		},
+	})
 }
 
 // ////////////////////////
@@ -336,7 +494,7 @@ func (h *GatewayHandler) GetRecommendationsWithDetails(c *gin.Context) {
 
 	// Korak 1: Pozovi follower service za osnovne preporuke
 	log.Println("SAGA Step 1: Calling follower-service for recommendations...")
-	
+
 	// Kreiraj HTTP zahtev ka follower servisu
 	followerURL := h.followerServiceURL + "/api/follower/recommendations"
 	req, err := http.NewRequest("GET", followerURL, nil)
@@ -381,14 +539,14 @@ func (h *GatewayHandler) GetRecommendationsWithDetails(c *gin.Context) {
 
 	// Korak 2: Za svaki userId, pozovi stakeholders service da obogatiš podatke
 	log.Println("SAGA Step 2: Enriching recommendations with stakeholder details...")
-	
+
 	enrichedRecommendations := make([]UserRecommendation, 0, len(basicRecommendations))
 	successCount := 0
 	failureCount := 0
 
 	for i, rec := range basicRecommendations {
 		log.Printf("SAGA Step 2.%d: Fetching details for userId=%d (username=%s)", i+1, rec.UserId, rec.Username)
-		
+
 		// Pozovi stakeholders service za detalje
 		stakeholderURL := fmt.Sprintf("%s/internal/users/%d", h.stakeholdersServiceURL, rec.UserId)
 		log.Printf("SAGA DEBUG: Full stakeholder URL: %s", stakeholderURL)
@@ -434,7 +592,7 @@ func (h *GatewayHandler) GetRecommendationsWithDetails(c *gin.Context) {
 		rec.FirstName = stakeholderDetails.FirstName
 		rec.LastName = stakeholderDetails.LastName
 		rec.Role = stakeholderDetails.Role
-		
+
 		enrichedRecommendations = append(enrichedRecommendations, rec)
 		successCount++
 		log.Printf("SAGA Step 2.%d SUCCESS: Enriched userId=%d with email=%s, role=%s", i+1, rec.UserId, rec.Email, rec.Role)
@@ -450,4 +608,3 @@ func (h *GatewayHandler) GetRecommendationsWithDetails(c *gin.Context) {
 	// Korak 3: Vrati obogaćene preporuke
 	c.JSON(http.StatusOK, enrichedRecommendations)
 }
-
