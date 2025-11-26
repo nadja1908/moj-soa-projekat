@@ -50,12 +50,26 @@ const NavigationBar = () => {
     
     // Blog link samo za guide i tourist (ne za admin)
     const blogLink = (user.role === 'guide' || user.role === 'tourist') ? (
-      <Link
-        to="/posts"
-        className="text-gray-700 hover:text-orange-600 font-medium transition-colors duration-200 text-sm xl:text-base"
-      >
-        📰 Blog
-      </Link>
+      <>
+        <Link
+          to="/posts"
+          className="text-gray-700 hover:text-orange-600 font-medium transition-colors duration-200 text-sm xl:text-base"
+        >
+          📰 Blog
+        </Link>
+        <Link
+          to="/my-posts"
+          className="text-gray-700 hover:text-orange-600 font-medium transition-colors duration-200 text-sm xl:text-base"
+        >
+          📝 Moji Blogovi
+        </Link>
+        <Link
+          to="/community"
+          className="text-gray-700 hover:text-purple-600 font-medium transition-colors duration-200 text-sm xl:text-base"
+        >
+          👥 Zajednica
+        </Link>
+      </>
     ) : null;
     
     const roleSpecificLinks = (() => {

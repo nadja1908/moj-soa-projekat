@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -23,6 +24,7 @@ type GatewayHandler struct {
 	stakeholdersServiceURL string
 	blogServiceURL         string
 	tourServiceURL         string
+	followerServiceURL     string
 	purchaseServiceURL     string
 	tourGRPCClient         tourpb.TourServiceClient
 }
@@ -50,6 +52,7 @@ func NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, t
 		stakeholdersServiceURL: stakeholdersServiceURL,
 		blogServiceURL:         blogServiceURL,
 		tourServiceURL:         tourServiceURL,
+		followerServiceURL:     followerServiceURL,
 		purchaseServiceURL:     purchaseURL,
 		tourGRPCClient:         tourClient,
 	}
@@ -151,6 +154,28 @@ func (h *GatewayHandler) ProxyToBlog(c *gin.Context) {
 
 	finalURL := h.blogServiceURL + path
 	log.Println("[ProxyToBlog] FINAL URL:", finalURL)
+
+	h.proxyRequest(c, finalURL)
+}
+
+// ////////////////////////
+// FOLLOWER SERVICE PROXY
+// ////////////////////////
+func (h *GatewayHandler) ProxyToFollower(c *gin.Context) {
+	log.Println("------------------------------------------------")
+	log.Println("[ProxyToFollower] ORIGINAL PATH:", c.Request.URL.Path)
+	log.Println("[ProxyToFollower] METHOD:", c.Request.Method)
+	log.Println("[ProxyToFollower] AUTH FROM CLIENT:", c.GetHeader("Authorization"))
+
+	original := c.Request.URL.Path
+	path := strings.TrimPrefix(original, "/api/follower")
+	if path == "" {
+		path = "/"
+	}
+
+	// Follower service očekuje /api/follower prefix
+	finalURL := h.followerServiceURL + "/api/follower" + path
+	log.Println("[ProxyToFollower] FINAL URL:", finalURL)
 
 	h.proxyRequest(c, finalURL)
 }
@@ -424,4 +449,162 @@ func (h *GatewayHandler) ProxyToKeyPoints(c *gin.Context) {
 	targetURL := h.tourServiceURL + targetPath
 	log.Printf("DEBUG: ProxyToKeyPoints proxying to: %s", targetURL)
 	h.proxyRequest(c, targetURL)
+}
+
+// ////////////////////////
+// SAGA ORCHESTRATION FOR RECOMMENDATIONS
+// ////////////////////////
+
+// UserRecommendation struktura za preporuke korisnika
+type UserRecommendation struct {
+	UserId          int    `json:"userId"`
+	Username        string `json:"username"`
+	Email           string `json:"email"`
+	FirstName       string `json:"firstName,omitempty"`
+	LastName        string `json:"lastName,omitempty"`
+	Role            string `json:"role,omitempty"`
+	CommonFollowers int    `json:"commonFollowers"`
+}
+
+// StakeholderDetails struktura za detalje korisnika iz stakeholders servisa
+type StakeholderDetails struct {
+	ID        int    `json:"id"`
+	Email     string `json:"email"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+	Username  string `json:"username"`
+	Role      string `json:"role"`
+	IsActive  bool   `json:"isActive"`
+}
+
+type StakeholderResponse struct {
+	User StakeholderDetails `json:"user"`
+}
+
+// GetRecommendationsWithDetails implementira SAGA orchestration pattern
+// Koraci:
+// 1. Poziva follower-service za preporuke iz Neo4j
+// 2. Za svaki userId poziva stakeholders-service da dobije dodatne detalje
+// 3. Obogaćuje podatke i vraća kompletan rezultat
+// 4. Ako stakeholders service ne odgovori, vraća osnovne podatke (fallback/compensation)
+func (h *GatewayHandler) GetRecommendationsWithDetails(c *gin.Context) {
+	log.Println("========================================")
+	log.Println("SAGA ORCHESTRATION: Starting recommendations saga")
+	log.Println("========================================")
+
+	// Korak 1: Pozovi follower service za osnovne preporuke
+	log.Println("SAGA Step 1: Calling follower-service for recommendations...")
+
+	// Kreiraj HTTP zahtev ka follower servisu
+	followerURL := h.followerServiceURL + "/api/follower/recommendations"
+	req, err := http.NewRequest("GET", followerURL, nil)
+	if err != nil {
+		log.Printf("SAGA ERROR: Failed to create request to follower service: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
+		return
+	}
+
+	// Prekopiraj Authorization header
+	if authHeader := c.GetHeader("Authorization"); authHeader != "" {
+		req.Header.Set("Authorization", authHeader)
+	}
+
+	// Pozovi follower service
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("SAGA ERROR: Failed to call follower service: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get recommendations"})
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("SAGA ERROR: Follower service returned status %d", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		log.Printf("SAGA ERROR: Response body: %s", string(body))
+		c.JSON(resp.StatusCode, gin.H{"error": "Failed to get recommendations from follower service"})
+		return
+	}
+
+	// Parse osnovne preporuke
+	var basicRecommendations []UserRecommendation
+	if err := json.NewDecoder(resp.Body).Decode(&basicRecommendations); err != nil {
+		log.Printf("SAGA ERROR: Failed to decode recommendations: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse recommendations"})
+		return
+	}
+
+	log.Printf("SAGA Step 1 SUCCESS: Received %d recommendations from follower service", len(basicRecommendations))
+
+	// Korak 2: Za svaki userId, pozovi stakeholders service da obogatiš podatke
+	log.Println("SAGA Step 2: Enriching recommendations with stakeholder details...")
+
+	enrichedRecommendations := make([]UserRecommendation, 0, len(basicRecommendations))
+	successCount := 0
+	failureCount := 0
+
+	for i, rec := range basicRecommendations {
+		log.Printf("SAGA Step 2.%d: Fetching details for userId=%d (username=%s)", i+1, rec.UserId, rec.Username)
+
+		// Pozovi stakeholders service za detalje
+		stakeholderURL := fmt.Sprintf("%s/internal/users/%d", h.stakeholdersServiceURL, rec.UserId)
+		log.Printf("SAGA DEBUG: Full stakeholder URL: %s", stakeholderURL)
+		stakeholderReq, err := http.NewRequest("GET", stakeholderURL, nil)
+		if err != nil {
+			log.Printf("SAGA COMPENSATION: Failed to create request for userId=%d, using basic data", rec.UserId)
+			enrichedRecommendations = append(enrichedRecommendations, rec)
+			failureCount++
+			continue
+		}
+
+		stakeholderResp, err := client.Do(stakeholderReq)
+		if err != nil {
+			log.Printf("SAGA COMPENSATION: Failed to call stakeholders service for userId=%d, using basic data: %v", rec.UserId, err)
+			enrichedRecommendations = append(enrichedRecommendations, rec)
+			failureCount++
+			continue
+		}
+
+		log.Printf("SAGA DEBUG: Stakeholders response status: %d for userId=%d", stakeholderResp.StatusCode, rec.UserId)
+		if stakeholderResp.StatusCode != http.StatusOK {
+			log.Printf("SAGA COMPENSATION: Stakeholders service returned status %d for userId=%d, using basic data", stakeholderResp.StatusCode, rec.UserId)
+			stakeholderResp.Body.Close()
+			enrichedRecommendations = append(enrichedRecommendations, rec)
+			failureCount++
+			continue
+		}
+
+		// Parse detalje o korisniku
+		var stakeholderResponse StakeholderResponse
+		if err := json.NewDecoder(stakeholderResp.Body).Decode(&stakeholderResponse); err != nil {
+			log.Printf("SAGA COMPENSATION: Failed to parse stakeholder details for userId=%d, using basic data: %v", rec.UserId, err)
+			stakeholderResp.Body.Close()
+			enrichedRecommendations = append(enrichedRecommendations, rec)
+			failureCount++
+			continue
+		}
+		stakeholderResp.Body.Close()
+
+		// Obogati preporuku sa detaljima
+		stakeholderDetails := stakeholderResponse.User
+		rec.Email = stakeholderDetails.Email
+		rec.FirstName = stakeholderDetails.FirstName
+		rec.LastName = stakeholderDetails.LastName
+		rec.Role = stakeholderDetails.Role
+
+		enrichedRecommendations = append(enrichedRecommendations, rec)
+		successCount++
+		log.Printf("SAGA Step 2.%d SUCCESS: Enriched userId=%d with email=%s, role=%s", i+1, rec.UserId, rec.Email, rec.Role)
+	}
+
+	log.Println("========================================")
+	log.Printf("SAGA ORCHESTRATION COMPLETED:")
+	log.Printf("  - Total recommendations: %d", len(basicRecommendations))
+	log.Printf("  - Successfully enriched: %d", successCount)
+	log.Printf("  - Fallback to basic data: %d", failureCount)
+	log.Println("========================================")
+
+	// Korak 3: Vrati obogaćene preporuke
+	c.JSON(http.StatusOK, enrichedRecommendations)
 }

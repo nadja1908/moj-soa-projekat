@@ -156,6 +156,8 @@ func (h *TourHandler) GetTourForTourist(c *gin.Context) {
 			"difficulty":  string(tour.Tour.Difficulty),
 			"tags":        tags,
 			"publishedAt": tour.Tour.PublishedAt,
+			"keyPoints":   tour.KeyPoints,
+			"durations":   tour.Durations,
 		},
 	})
 }

@@ -26,7 +26,9 @@ const TourDetailsModal = ({ show, onHide, tourId }) => {
       }
       
       const data = await response.json();
-      if (data.success) {
+      console.log('API Response:', data); // Debug log
+      
+      if (data.success && data.tour) {
         setTour(data.tour);
       } else {
         setError('Tura nije dostupna');
@@ -146,9 +148,9 @@ const parseTagsFromString = (tags) => {
               <Card.Body>
                 <div className="row">
                   <div className="col-md-6">
-                    <p><strong>Naziv:</strong> {tour.name}</p>
-                    <p><strong>Težina:</strong> {getDifficultyBadge(tour.difficulty)}</p>
-                    <p><strong>Cena:</strong> <span className="text-success fw-bold">€{tour.price}</span></p>
+                    <p><strong>Naziv:</strong> {tour.name || 'N/A'}</p>
+                    <p><strong>Težina:</strong> {tour.difficulty ? getDifficultyBadge(tour.difficulty) : 'N/A'}</p>
+                    <p><strong>Cena:</strong> <span className="text-success fw-bold">€{tour.price || '0.00'}</span></p>
                   </div>
                   <div className="col-md-6">
                     <p><strong>Rastojanje:</strong> {tour.distanceKm || '0.0'} km</p>
