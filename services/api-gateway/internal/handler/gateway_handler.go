@@ -55,6 +55,16 @@ func NewGatewayHandler(authServiceURL, stakeholdersServiceURL, blogServiceURL, t
 	}
 }
 
+// Public method to access tourServiceURL
+func (h *GatewayHandler) TourServiceURL() string {
+	return h.tourServiceURL
+}
+
+// Public method to call proxyRequest
+func (h *GatewayHandler) ProxyRequest(c *gin.Context, targetURL string) {
+	h.proxyRequest(c, targetURL)
+}
+
 // ////////////////////////
 // AUTH SERVICE PROXY
 // ////////////////////////

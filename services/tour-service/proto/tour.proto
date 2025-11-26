@@ -61,9 +61,21 @@ message GetPublicTourResponse {
   PublicTour tour = 1;
 }
 
+// ---------- Messages za publish tour ----------
+
+message PublishTourRequest {
+  int64 tour_id = 1;
+}
+
+message PublishTourResponse {
+  bool success = 1;
+  string message = 2;
+}
+
 // ---------- Service ----------
 
 service TourService {
   rpc GetPublishedTours (GetPublishedToursRequest) returns (GetPublishedToursResponse);
   rpc GetPublicTour (GetPublicTourRequest) returns (GetPublicTourResponse);
+  rpc PublishTour (PublishTourRequest) returns (PublishTourResponse);
 }
