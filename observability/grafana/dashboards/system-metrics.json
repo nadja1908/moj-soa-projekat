@@ -1,0 +1,154 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Sistema i Kontejner Metrike",
+    "tags": ["system", "containers", "monitoring"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "CPU Iskorišćenost Hosta (%)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "100 - (avg(irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+            "legendFormat": "CPU Korišćenje"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 90}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Memorija Hosta",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "(node_memory_MemTotal_bytes - node_memory_MemFree_bytes - node_memory_Buffers_bytes - node_memory_Cached_bytes) / node_memory_MemTotal_bytes * 100",
+            "legendFormat": "Memorija Korišćenje"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 90}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Disk I/O",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "irate(node_disk_read_bytes_total[5m])",
+            "legendFormat": "{{device}} - Čitanje"
+          },
+          {
+            "expr": "irate(node_disk_written_bytes_total[5m])",
+            "legendFormat": "{{device}} - Pisanje"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "binBps"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 4,
+        "title": "Mrežni Saobraćaj",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "irate(node_network_receive_bytes_total{device!=\"lo\"}[5m])",
+            "legendFormat": "{{device}} - Primljeno"
+          },
+          {
+            "expr": "irate(node_network_transmit_bytes_total{device!=\"lo\"}[5m])",
+            "legendFormat": "{{device}} - Poslano"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "binBps"
+          }
+        },
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "CPU Kontejnera po Servisu",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(container_cpu_usage_seconds_total{name=~\"moj-soa-projekat.*\"}[5m]) * 100",
+            "legendFormat": "{{name}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "percent"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+      },
+      {
+        "id": 6,
+        "title": "Memorija Kontejnera po Servisu",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "container_memory_usage_bytes{name=~\"moj-soa-projekat.*\"} / 1024 / 1024",
+            "legendFormat": "{{name}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "decbytes"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+      }
+    ],
+    "time": {
+      "from": "now-30m",
+      "to": "now"
+    },
+    "timepicker": {},
+    "templating": {
+      "list": []
+    },
+    "version": 1,
+    "schemaVersion": 30
+  }
+}

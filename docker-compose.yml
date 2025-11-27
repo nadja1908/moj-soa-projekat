@@ -74,6 +74,12 @@ services:
       - Jwt__Secret=moj-tajni-kljuc-za-jwt-tokenizaciju-2024
     networks:
       - app-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=follower-service,environment=development"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/api/follower/health || exit 1"]
       interval: 30s
@@ -131,6 +137,9 @@ services:
       - STAKEHOLDERS_SERVICE_URL=http://stakeholders-service:8001
       - JWT_KEY=moj-tajni-kljuc-za-jwt-tokenizaciju-2024
       - JWT_REFRESH_KEY=moj-refresh-kljuc-za-jwt-tokenizaciju-2024
+      # Observability
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+      - LOGSTASH_HOST=logstash:5000
     networks:
       - app-network
     healthcheck:
@@ -141,6 +150,8 @@ services:
       start_period: 20s
     depends_on:
       stakeholders-service:
+        condition: service_healthy
+      jaeger:
         condition: service_healthy
 
   # 5. Blog Servis (Go)
@@ -346,6 +357,216 @@ services:
       tour-service:
         condition: service_healthy
 
+  # === OBSERVABILITY STACK ===
+  # Jaeger Tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    restart: unless-stopped
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # HTTP collector
+      - "14250:14250"  # gRPC collector
+      - "6831:6831/udp"  # UDP agent
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - COLLECTOR_ZIPKIN_HTTP_PORT=9411
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --timeout=10 -O /dev/null http://localhost:16686 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Elasticsearch for logging
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    restart: unless-stopped
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"  # Reduced memory usage
+      - bootstrap.memory_lock=false
+      - cluster.routing.allocation.disk.threshold_enabled=false
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=60s || exit 1"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 120s
+
+  # Kibana for log visualization
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - xpack.security.enabled=false
+      - xpack.encryptedSavedObjects.encryptionKey=a7a6311933d3503b89bc2dbc36572c33a6c10925682e591bffcab6911c06786d
+    networks:
+      - app-network
+    depends_on:
+      - elasticsearch
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  # Logstash for log processing
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.11.0
+    restart: unless-stopped
+    ports:
+      - "5044:5044"  # Beats input  
+      - "5000:5000"  # TCP input for JSON logs
+      - "9600:9600"  # Logstash monitoring
+    volumes:
+      - ./observability/logstash/config:/usr/share/logstash/config:ro
+      - ./observability/logstash/pipeline:/usr/share/logstash/pipeline:ro
+    environment:
+      - "LS_JAVA_OPTS=-Xms128m -Xmx256m"  # Reduced memory
+      - "PIPELINE_WORKERS=1"
+    networks:
+      - app-network
+    depends_on:
+      - elasticsearch
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9600/_node/stats || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Filebeat for log shipping
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.11.0
+    user: root
+    restart: unless-stopped
+    volumes:
+      - ./observability/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - filebeat-data:/usr/share/filebeat/data
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - LOGSTASH_HOSTS=logstash:5044
+    networks:
+      - app-network
+    depends_on:
+      - logstash
+    command: filebeat -e -strict.perms=false
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --timeout=10 -O /dev/null http://localhost:9090/-/healthy || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Grafana for metrics visualization (avoiding port 3000)
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    ports:
+      - "3001:3000"  # Changed from 3000 to 3001 to avoid conflict
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - app-network
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --timeout=10 -O /dev/null http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Node Exporter for host machine metrics
+  node-exporter:
+    image: prom/node-exporter:latest
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - app-network
+
+  # cAdvisor for container metrics
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.0  # Fixed version for Windows compatibility
+    restart: unless-stopped
+    ports:
+      - "8081:8080"  # Changed from 8080 to 8081 to avoid conflict
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    command:
+      - '--housekeeping_interval=30s'
+      - '--docker_only=true'
+      - '--enable_load_reader=true'
+      - '--logtostderr'
+      - '--v=2'
+    networks:
+      - app-network
+
 networks:
   app-network:
     driver: bridge
@@ -357,3 +578,8 @@ volumes:
   blog-data:
   tour-data:
   purchase-data:
+  # Observability volumes
+  elasticsearch-data:
+  prometheus-data:
+  grafana-data:
+  filebeat-data:

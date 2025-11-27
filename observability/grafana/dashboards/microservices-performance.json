@@ -1,0 +1,114 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Mikroservisi - Performanse",
+    "tags": ["microservices", "performance", "api"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "HTTP Zahtevi po Minutu",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m]) * 60",
+            "legendFormat": "{{job}} - {{method}} {{status}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "reqps"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "HTTP Responsi Vremena",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "{{job}} - 95th percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "{{job}} - 50th percentile"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "s"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Greške HTTP Zahteva",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{status=~\"4..|5..\"}[5m]) * 60",
+            "legendFormat": "{{job}} - {{status}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "reqps"
+          }
+        },
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Go Garbage Collection",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(go_gc_duration_seconds_sum[5m])",
+            "legendFormat": "{{job}} - GC Duration"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "s"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+      },
+      {
+        "id": 5,
+        "title": "Go Gorutine",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "go_goroutines",
+            "legendFormat": "{{job}} - Goroutines"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+      }
+    ],
+    "time": {
+      "from": "now-30m",
+      "to": "now"
+    },
+    "timepicker": {},
+    "templating": {
+      "list": []
+    },
+    "version": 1,
+    "schemaVersion": 30
+  }
+}

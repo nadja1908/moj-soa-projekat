@@ -14,6 +14,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type AuthClaims struct {
@@ -42,11 +45,34 @@ func NewAuthHandler(stakeholdersServiceURL string) *AuthHandler {
 
 // Login handler - poziva stakeholders servis za autentifikaciju
 func (h *AuthHandler) Login(c *gin.Context) {
+	// Start tracing span
+	tracer := otel.Tracer("auth-service")
+	_, span := tracer.Start(c.Request.Context(), "login_user")
+	defer span.End()
+
 	var req model.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		span.RecordError(err)
+		span.SetAttributes(attribute.String("error", "invalid_request"))
+		logrus.WithFields(logrus.Fields{
+			"error":    err.Error(),
+			"trace_id": span.SpanContext().TraceID().String(),
+			"span_id":  span.SpanContext().SpanID().String(),
+		}).Error("Invalid login request")
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	span.SetAttributes(
+		attribute.String("username", req.Username),
+		attribute.String("operation", "user_login"),
+	)
+
+	logrus.WithFields(logrus.Fields{
+		"username": req.Username,
+		"trace_id": span.SpanContext().TraceID().String(),
+		"span_id":  span.SpanContext().SpanID().String(),
+	}).Info("User login attempt")
 
 	// Pozovi stakeholders servis za login
 	loginData, _ := json.Marshal(req)

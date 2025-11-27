@@ -1,0 +1,96 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter - Host machine metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # cAdvisor - Container metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']  # Internal Docker network port remains 8080
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Microservices metrics (for services that expose /metrics endpoint)
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['api-gateway:8000']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['auth-service:8003']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  - job_name: 'stakeholders-service'
+    static_configs:
+      - targets: ['stakeholders-service:8001']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  - job_name: 'blog-service'
+    static_configs:
+      - targets: ['blog-service:8002']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  - job_name: 'tour-service'
+    static_configs:
+      - targets: ['tour-service:8004']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  - job_name: 'follower-service'
+    static_configs:
+      - targets: ['follower-service:8080']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  - job_name: 'purchase-service'
+    static_configs:
+      - targets: ['purchase-service:8005']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Database metrics
+  - job_name: 'mysql-stakeholders'
+    static_configs:
+      - targets: ['stakeholders-db:3306']
+    scrape_interval: 60s
+
+  - job_name: 'mysql-blog'
+    static_configs:
+      - targets: ['blog-db:3306']
+    scrape_interval: 60s
+
+  - job_name: 'mysql-tour'
+    static_configs:
+      - targets: ['tour-db:3306']
+    scrape_interval: 60s
+
+  - job_name: 'neo4j'
+    static_configs:
+      - targets: ['neo4j:7474']
+    scrape_interval: 60s
+
+  - job_name: 'mongodb'
+    static_configs:
+      - targets: ['purchase-db:27017']
+    scrape_interval: 60s

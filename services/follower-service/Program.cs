@@ -2,8 +2,45 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using follower_service.Services;
+using Prometheus;
+using System.Diagnostics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Exporter;
+using Serilog;
+using Serilog.Formatting.Compact;
+using Serilog.Sinks.Elasticsearch;
+
+// Configure Serilog for JSON logging to Console and Elasticsearch
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console(new CompactJsonFormatter())
+    .WriteTo.Elasticsearch(new ElasticsearchSinkOptions(new Uri("http://elasticsearch:9200"))
+    {
+        IndexFormat = "microservices-logs-{0:yyyy.MM.dd}",
+        AutoRegisterTemplate = true,
+        NumberOfShards = 2,
+        NumberOfReplicas = 1
+    })
+    .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Add Serilog
+builder.Host.UseSerilog();
+
+// Add OpenTelemetry Tracing
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing => tracing
+        .SetResourceBuilder(ResourceBuilder.CreateDefault()
+            .AddService("follower-service", "1.0.0"))
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddConsoleExporter()
+        .AddOtlpExporter(options =>
+        {
+            options.Endpoint = new Uri("http://jaeger:14268/api/traces");
+            options.Protocol = OtlpExportProtocol.HttpProtobuf;
+        }));
 
 // Add services to the container
 builder.Services.AddControllers();
@@ -51,6 +88,12 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowAll");
+
+// Prometheus metrics middleware
+app.UseRouting();
+app.UseHttpMetrics();
+app.MapMetrics();
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

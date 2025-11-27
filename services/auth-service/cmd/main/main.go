@@ -1,22 +1,47 @@
 package main
 
 import (
-	"log"
+	"context"
 	"net"
 	"net/http"
 	"net/rpc"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"auth-service/internal/handler"
+	"auth-service/internal/telemetry"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 func main() {
+	serviceName := "auth-service"
 	port := getEnv("PORT", "8003")
 	rpcPort := getEnv("RPC_PORT", "9003")
 	stakeholdersService := getEnv("STAKEHOLDERS_SERVICE_URL", "http://stakeholders-service:8001")
+	jaegerEndpoint := getEnv("JAEGER_ENDPOINT", "http://jaeger:14268/api/traces")
+	logstashHost := getEnv("LOGSTASH_HOST", "logstash:5000")
+
+	// Initialize structured logging
+	logger := telemetry.InitLogger(serviceName, logstashHost)
+	logger.Info("Starting auth-service...")
+
+	// Initialize OpenTelemetry tracing
+	tp, err := telemetry.InitTracer(serviceName, jaegerEndpoint)
+	if err != nil {
+		logger.WithError(err).Fatal("Failed to initialize tracing")
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := telemetry.Shutdown(ctx, tp); err != nil {
+			logger.WithError(err).Error("Failed to shutdown tracing")
+		}
+	}()
 
 	// Inicijalizacija handler-a
 	authHandler := handler.NewAuthHandler(stakeholdersService)
@@ -28,16 +53,16 @@ func main() {
 
 	// Pokreni RPC server u goroutine
 	go func() {
-		log.Printf("Starting RPC server on port %s", rpcPort)
+		logger.WithField("rpc_port", rpcPort).Info("Starting RPC server")
 		listener, err := net.Listen("tcp", ":"+rpcPort)
 		if err != nil {
-			log.Fatalf("Failed to start RPC server: %v", err)
+			logger.WithError(err).Fatal("Failed to start RPC server")
 		}
 
 		for {
 			conn, err := listener.Accept()
 			if err != nil {
-				log.Printf("RPC connection error: %v", err)
+				logger.WithError(err).Error("RPC connection error")
 				continue
 			}
 			go rpc.ServeConn(conn)
@@ -47,6 +72,12 @@ func main() {
 	// HTTP server setup
 	r := gin.Default()
 
+	// Add OpenTelemetry middleware for automatic tracing
+	r.Use(otelgin.Middleware(serviceName))
+
+	// Add custom metrics middleware
+	r.Use(telemetry.PrometheusMetrics())
+
 	// CORS konfiguracija
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
@@ -54,6 +85,9 @@ func main() {
 		AllowHeaders:     []string{"*"},
 		AllowCredentials: true,
 	}))
+
+	// Setup metrics endpoint
+	telemetry.SetupMetricsEndpoint(r)
 
 	// Health check
 	r.GET("/health", authHandler.Health)
@@ -67,9 +101,33 @@ func main() {
 	// Token validation endpoint za druge servise
 	r.GET("/validate", authHandler.ValidateToken)
 
-	log.Printf("Auth service HTTP server starting on port %s", port)
-	log.Printf("Auth service RPC server starting on port %s", rpcPort)
-	log.Fatal(http.ListenAndServe(":"+port, r))
+	// Setup graceful shutdown
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: r,
+	}
+
+	go func() {
+		logger.WithField("port", port).Info("Auth service HTTP server starting")
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.WithError(err).Fatal("Failed to start HTTP server")
+		}
+	}()
+
+	// Wait for interrupt signal to gracefully shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	logger.Info("Shutting down auth-service...")
+
+	// Shutdown HTTP server
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		logger.WithError(err).Error("Failed to shutdown HTTP server")
+	}
+
+	logger.Info("Auth-service stopped")
 }
 
 func getEnv(key, defaultValue string) string {
