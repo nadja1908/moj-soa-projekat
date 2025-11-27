@@ -458,24 +458,40 @@ services:
       retries: 3
       start_period: 60s
 
-  # Filebeat for log shipping
-  filebeat:
-    image: docker.elastic.co/beats/filebeat:8.11.0
+  # Loki za log storage
+  loki:
+    image: grafana/loki:latest
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./observability/loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/loki.yml
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --timeout=10 -O /dev/null http://localhost:3100/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Fluent Bit za log aggregation
+  fluent-bit:
+    image: fluent/fluent-bit:latest
     user: root
     restart: unless-stopped
     volumes:
-      - ./observability/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./observability/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - ./observability/fluent-bit/scripts:/fluent-bit/scripts:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - filebeat-data:/usr/share/filebeat/data
-    environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-      - LOGSTASH_HOSTS=logstash:5044
+      - fluent-bit-data:/fluent-bit/tail
     networks:
       - app-network
     depends_on:
-      - logstash
-    command: filebeat -e -strict.perms=false
+      - loki
 
   # Prometheus for metrics collection
   prometheus:
@@ -582,4 +598,5 @@ volumes:
   elasticsearch-data:
   prometheus-data:
   grafana-data:
-  filebeat-data:
+  loki-data:
+  fluent-bit-data:

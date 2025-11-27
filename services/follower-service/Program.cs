@@ -9,18 +9,10 @@ using OpenTelemetry.Trace;
 using OpenTelemetry.Exporter;
 using Serilog;
 using Serilog.Formatting.Compact;
-using Serilog.Sinks.Elasticsearch;
 
-// Configure Serilog for JSON logging to Console and Elasticsearch
+// Configure Serilog for JSON logging to Console ONLY (Docker će prikupiti logove)
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(new CompactJsonFormatter())
-    .WriteTo.Elasticsearch(new ElasticsearchSinkOptions(new Uri("http://elasticsearch:9200"))
-    {
-        IndexFormat = "microservices-logs-{0:yyyy.MM.dd}",
-        AutoRegisterTemplate = true,
-        NumberOfShards = 2,
-        NumberOfReplicas = 1
-    })
     .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
