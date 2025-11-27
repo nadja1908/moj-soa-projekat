@@ -38,8 +38,8 @@ builder.Services.AddOpenTelemetry()
         .AddConsoleExporter()
         .AddOtlpExporter(options =>
         {
-            options.Endpoint = new Uri("http://jaeger:14268/api/traces");
-            options.Protocol = OtlpExportProtocol.HttpProtobuf;
+            options.Endpoint = new Uri("http://jaeger:4317");
+            options.Protocol = OtlpExportProtocol.Grpc;
         }));
 
 // Add services to the container

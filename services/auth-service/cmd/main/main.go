@@ -23,7 +23,7 @@ func main() {
 	port := getEnv("PORT", "8003")
 	rpcPort := getEnv("RPC_PORT", "9003")
 	stakeholdersService := getEnv("STAKEHOLDERS_SERVICE_URL", "http://stakeholders-service:8001")
-	jaegerEndpoint := getEnv("JAEGER_ENDPOINT", "http://jaeger:14268/api/traces")
+	jaegerEndpoint := getEnv("JAEGER_ENDPOINT", "http://jaeger:4317")
 	logstashHost := getEnv("LOGSTASH_HOST", "logstash:5000")
 
 	// Initialize structured logging
