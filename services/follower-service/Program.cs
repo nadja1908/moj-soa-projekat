@@ -13,6 +13,7 @@ using Serilog.Formatting.Compact;
 // Configure Serilog for JSON logging to Console ONLY (Docker će prikupiti logove)
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(new CompactJsonFormatter())
+    .MinimumLevel.Information()
     .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
@@ -38,6 +39,16 @@ builder.Services.AddOpenTelemetry()
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
+
+// Add HTTP request logging
+builder.Services.AddHttpLogging(logging =>
+{
+    logging.LoggingFields = Microsoft.AspNetCore.HttpLogging.HttpLoggingFields.RequestPropertiesAndHeaders |
+                           Microsoft.AspNetCore.HttpLogging.HttpLoggingFields.ResponsePropertiesAndHeaders;
+    logging.RequestHeaders.Clear();
+    logging.ResponseHeaders.Clear();
+    logging.MediaTypeOptions.Clear();
+});
 
 // Add Neo4j Service
 builder.Services.AddSingleton<Neo4jService>();
@@ -80,6 +91,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowAll");
+
+// Add HTTP request logging
+app.UseHttpLogging();
 
 // Prometheus metrics middleware
 app.UseRouting();
